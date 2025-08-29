@@ -1646,10 +1646,64 @@
                 });
             }, 500);
         }
+        // Validate route selection
+        function validateRouteSelection() {
+            const sourcePort = document.getElementById('sourcePort').value;
+            const destPort = document.getElementById('destinationPort').value;
+            
+            if (sourcePort === destPort) {
+                // Show error message
+                showRouteValidationError('Source and destination ports cannot be the same. Please select different ports.');
+                return false;
+            }
+            
+            // Clear any existing error messages
+            clearRouteValidationError();
+            return true;
+        }
+
+        // Show route validation error
+        function showRouteValidationError(message) {
+            // Remove any existing error message
+            clearRouteValidationError();
+            
+            // Create error message element
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'routeValidationError';
+            errorDiv.className = 'mt-4 p-4 bg-red-900/50 border border-red-400 rounded-xl text-red-300 flex items-center';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle mr-3 text-red-400"></i>
+                <span>${message}</span>
+            `;
+            
+            // Insert after the route configuration section
+            const routeConfigSection = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.gap-6').parentElement;
+            routeConfigSection.appendChild(errorDiv);
+        }
+
+        // Clear route validation error
+        function clearRouteValidationError() {
+            const errorDiv = document.getElementById('routeValidationError');
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+        }
+
         // Update route display and calculations
         function updateRouteDisplay() {
             const sourcePort = document.getElementById('sourcePort').value;
             const destPort = document.getElementById('destinationPort').value;            
+            
+            // Validate route selection first
+            if (!validateRouteSelection()) {
+                // Clear route display for invalid selection
+                document.getElementById('currentRoute').textContent = 'Invalid Route Selection';
+                document.getElementById('routeDistance').textContent = '-- nm';
+                document.getElementById('routeDuration').textContent = '-- --';
+                document.getElementById('fuelCost').textContent = '$--';
+                return;
+            }
+            
             const source = PORTS[sourcePort];
             const destination = PORTS[destPort];            
             if (source && destination) {
@@ -1696,6 +1750,13 @@
                         map.removeLayer(layer);
                     }
                 });
+                
+                // Validate route selection before drawing
+                if (!validateRouteSelection()) {
+                    console.warn('Invalid route selection: Source and destination cannot be the same');
+                    return;
+                }
+                
                 const sourcePort = document.getElementById('sourcePort').value;
                 const destPort = document.getElementById('destinationPort').value;                
                 const source = PORTS[sourcePort];
@@ -2042,6 +2103,12 @@
         }
         // Enhanced optimization with parameters
         async function optimizeRoute() {
+            // Validate route selection before optimization
+            if (!validateRouteSelection()) {
+                alert('Cannot optimize route: Source and destination ports cannot be the same. Please select different ports.');
+                return;
+            }
+            
             const button = document.getElementById('optimizeRoute');
             const resultDiv = document.getElementById('optimizationResult');
             const optimizeText = document.getElementById('optimizeText');
@@ -2977,15 +3044,21 @@
             // Port selection listeners
             document.getElementById('sourcePort').addEventListener('change', () => {
                 updateRouteDisplay();
-                setTimeout(drawRoute, 500); // Give map time to be ready
+                if (validateRouteSelection()) {
+                    setTimeout(drawRoute, 500); // Give map time to be ready
+                }
             });            
             document.getElementById('destinationPort').addEventListener('change', () => {
                 updateRouteDisplay();
-                setTimeout(drawRoute, 500);
+                if (validateRouteSelection()) {
+                    setTimeout(drawRoute, 500);
+                }
             });            
             document.getElementById('updateRoute').addEventListener('click', () => {
                 updateRouteDisplay();
-                setTimeout(drawRoute, 500);
+                if (validateRouteSelection()) {
+                    setTimeout(drawRoute, 500);
+                }
             });
             // Action button listeners
             document.getElementById('loadForecast').addEventListener('click', loadForecast);
