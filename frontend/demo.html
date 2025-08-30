@@ -295,6 +295,52 @@
             50% { opacity: 1; transform: scale(1.05); }
         }
 
+        @keyframes windRipple {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        
+        @keyframes circleGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
+        }
+        
+        .elegant-wind-marker {
+            z-index: 1000;
+        }
+        
+        .elegant-wind-marker:hover .wind-dot {
+            transform: translate(-50%, -50%) scale(1.3);
+            box-shadow: 0 0 15px currentColor;
+        }
+        
+        .elegant-wind-marker:hover .wind-direction-line {
+            opacity: 1;
+            width: 30px;
+        }
+        
+        .elegant-tooltip {
+            animation: tooltipFadeIn 0.3s ease-out;
+        }
+        
+        @keyframes tooltipFadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        .glow-circle {
+            animation: circleGlow 3s ease-in-out infinite;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.9; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
         /* Premium Card Effects & Modern Styling */
         .premium-card {
             background: rgba(22, 40, 56, 0.12);
@@ -1019,11 +1065,32 @@
                 </div>              
                 <!-- Advanced Map Controls -->
                 <div class="mt-6 space-y-4">
-                    <!-- Layer Controls - Removed mock overlays -->
+                    <!-- Weather Overlay Controls -->
                     <div class="flex flex-wrap gap-3">
-                        <div class="text-gray-400 text-sm italic">
-                            Weather overlays require live API data
-                        </div>
+                        <button id="waveOverlayBtn" class="overlay-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+                            <span class="text-lg">🌊</span>
+                            <span>Wave Zones</span>
+                            <div class="loading-spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                        </button>
+                        <button id="windOverlayBtn" class="overlay-btn bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+                            <span class="text-lg">🌪️</span>
+                            <span>Wind Arrows</span>
+                            <div class="loading-spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                        </button>
+                        <button id="tempOverlayBtn" class="overlay-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+                            <span class="text-lg">🌡️</span>
+                            <span>Temperature</span>
+                            <div class="loading-spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                        </button>
+                        <button id="precipOverlayBtn" class="overlay-btn bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+                            <span class="text-lg">🌧️</span>
+                            <span>Precipitation</span>
+                            <div class="loading-spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                        </button>
+                        <button id="clearOverlayBtn" class="overlay-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+                            <span class="text-lg">🗑️</span>
+                            <span>Clear All</span>
+                        </button>
                     </div>                
                     <!-- Map Statistics -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pb-5">
@@ -1548,6 +1615,29 @@
         let activeMapLayers = [];
         let waypointWeatherData = []; // Store weather data for each waypoint
         const API_BASE = 'http://localhost:8000';
+        
+        // OpenWeather API Configuration
+        const OPENWEATHER_API_KEY = '24302ec53814dd7ded88bc752141cc52';
+        const OPENWEATHER_BASE_URL = 'https://api.openweathermap.org/data/2.5';
+        
+        // Wind speed thresholds for color coding (in m/s)
+        const WIND_THRESHOLDS = {
+            low: 5,    // Green zone: 0-5 m/s (calm to light breeze)
+            medium: 10, // Yellow zone: 5-10 m/s (moderate breeze)
+            high: 15   // Red zone: 10+ m/s (strong breeze and above)
+        };
+        
+        // Weather overlay data storage
+        let weatherOverlayData = [];
+        let overlayVisible = false;
+        let overlayLayers = [];
+        let windOverlayVisible = false;
+        let windOverlayLayers = [];
+        let tempOverlayLayers = [];
+        let precipOverlayLayers = [];
+        let tempOverlayVisible = false;
+        let precipOverlayVisible = false;
+        let currentOverlayType = null;
         
         // Open-Meteo API Configuration (Free weather and marine data APIs)
         // Note: Open-Meteo APIs are free and do not require API keys        
@@ -2904,56 +2994,7 @@
                 return calculateBearing(fromCoords[0], fromCoords[1], toCoords[0], toCoords[1]);
             }
             
-            return null;
-        }
-        
-        // Enhanced weather chart
-        function initWeatherChart() {
-            const ctx = document.getElementById('weatherChart').getContext('2d');
-            weatherChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Now', '+6h', '+12h', '+18h', '+24h'],
-                    datasets: [
-                        {
-                            label: 'Wave Height (m)',
-                            data: [2.1, 2.4, 2.8, 2.5, 2.2],
-                            borderColor: '#0ea5e9',
-                            backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Wind Speed (m/s)',
-                            data: [8.5, 9.2, 10.1, 9.8, 8.9],
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            tension: 0.4,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { 
-                            display: true,
-                            labels: { color: '#94a3b8', font: { size: 10 } }
-                        }
-                    },
-                    scales: {
-                        x: { 
-                            ticks: { color: '#94a3b8', font: { size: 10 } },
-                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
-                        },
-                        y: { 
-                            ticks: { color: '#94a3b8', font: { size: 10 } },
-                            grid: { color: 'rgba(148, 163, 184, 0.1)' }
-                        }
-                    }
-                }
-            });
+            return 0; // Default bearing if calculation fails
         }
         // Initialize all advanced charts
         function initPerformanceChart() {
@@ -4278,6 +4319,823 @@
         window.addEventListener('beforeunload', function() {
             if (vantaEffect) vantaEffect.destroy();
         });
+
+        // ========== OPENWEATHER API OVERLAY SYSTEM ==========
+
+        // Fetch weather data from OpenWeather API for a specific coordinate
+        async function fetchWeatherData(lat, lon) {
+            try {
+                const response = await fetch(`${OPENWEATHER_BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return {
+                    lat: lat,
+                    lon: lon,
+                    windSpeed: data.wind.speed, // m/s
+                    windDirection: data.wind.deg,
+                    waveHeight: data.main.humidity / 10, // Simulated wave height
+                    temperature: data.main.temp,
+                    pressure: data.main.pressure,
+                    visibility: data.visibility / 1000, // Convert to km
+                    weatherCondition: data.weather[0].main,
+                    description: data.weather[0].description
+                };
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+                throw error; // No mock data - only real API data
+            }
+        }
+
+        // Get color based on wind speed thresholds
+        function getWindSpeedColor(windSpeed) {
+            if (windSpeed <= WIND_THRESHOLDS.low) {
+                return '#10B981'; // Green - Safe conditions
+            } else if (windSpeed <= WIND_THRESHOLDS.medium) {
+                return '#F59E0B'; // Yellow - Moderate conditions
+            } else {
+                return '#EF4444'; // Red - Dangerous conditions
+            }
+        }
+
+        // Create weather overlay for waypoints on a specific route
+        async function createWeatherOverlay(routeName) {
+            if (!PREDEFINED_ROUTES[routeName]) {
+                console.error('Route not found:', routeName);
+                return;
+            }
+
+            const route = PREDEFINED_ROUTES[routeName];
+            weatherOverlayData = [];
+            
+            // Clear existing overlay layers
+            clearWeatherOverlay();
+
+            // Show loading indicator
+            showOverlayLoading(true);
+
+            try {
+                // Sample every 5th waypoint to avoid API rate limits
+                const sampledWaypoints = route.waypoints.filter((_, index) => index % 5 === 0);
+                
+                for (let i = 0; i < sampledWaypoints.length; i++) {
+                    const [lat, lon] = sampledWaypoints[i];
+                    const weatherData = await fetchWeatherData(lat, lon);
+                    weatherOverlayData.push(weatherData);
+
+                    // Create stunning large colored circles with enhanced gradient effect
+                    const color = getWindSpeedColor(weatherData.windSpeed);
+                    
+                    // Create multiple concentric circles for beautiful gradient effect
+                    const baseRadius = 250000; // 250km base radius (much larger)
+                    const circles = [];
+                    
+                    // Outermost circle (very light glow effect)
+                    const glowCircle = L.circle([lat, lon], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.08,
+                        radius: baseRadius * 1.2,
+                        weight: 1,
+                        opacity: 0.2,
+                        className: 'glow-circle'
+                    }).addTo(map);
+                    circles.push(glowCircle);
+                    
+                    // Outer circle (light)
+                    const outerCircle = L.circle([lat, lon], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.25,
+                        radius: baseRadius,
+                        weight: 2,
+                        opacity: 0.4,
+                        className: 'outer-circle'
+                    }).addTo(map);
+                    circles.push(outerCircle);
+                    
+                    // Middle circle (medium intensity)
+                    const middleCircle = L.circle([lat, lon], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.45,
+                        radius: baseRadius * 0.65, // 65% of base
+                        weight: 3,
+                        opacity: 0.6,
+                        className: 'middle-circle'
+                    }).addTo(map);
+                    circles.push(middleCircle);
+                    
+                    // Inner circle (high intensity)
+                    const innerCircle = L.circle([lat, lon], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.75,
+                        radius: baseRadius * 0.35, // 35% of base
+                        weight: 4,
+                        opacity: 0.8,
+                        className: 'inner-circle'
+                    }).addTo(map);
+                    circles.push(innerCircle);
+                    
+                    // Core circle (most intense with pulsing effect)
+                    const coreCircle = L.circle([lat, lon], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.9,
+                        radius: baseRadius * 0.15, // 15% of base
+                        weight: 5,
+                        opacity: 1.0,
+                        className: 'core-circle pulse-animation'
+                    }).addTo(map);
+                    circles.push(coreCircle);
+
+                    // Add popup to the core circle (most interactive)
+                    coreCircle.bindPopup(`
+                        <div class="weather-popup">
+                            <h4 class="font-bold text-sm mb-2">Weather Conditions</h4>
+                            <div class="text-xs space-y-1">
+                                <div><strong>Wind:</strong> ${weatherData.windSpeed.toFixed(1)} m/s (${(weatherData.windSpeed * 1.944).toFixed(1)} kts)</div>
+                                <div><strong>Direction:</strong> ${weatherData.windDirection.toFixed(0)}°</div>
+                                <div><strong>Wave Height:</strong> ${weatherData.waveHeight.toFixed(1)}m</div>
+                                <div><strong>Temperature:</strong> ${weatherData.temperature.toFixed(1)}°C</div>
+                                <div><strong>Visibility:</strong> ${weatherData.visibility.toFixed(1)}km</div>
+                                <div><strong>Condition:</strong> ${weatherData.description}</div>
+                                <div class="mt-2 p-1 rounded text-center" style="background-color: ${color}; color: white;">
+                                    <strong>${weatherData.windSpeed <= WIND_THRESHOLDS.low ? 'SAFE' : 
+                                              weatherData.windSpeed <= WIND_THRESHOLDS.medium ? 'MODERATE' : 'DANGEROUS'}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+
+                    // Store all circles for this waypoint
+                    circles.forEach(circle => overlayLayers.push(circle));
+
+                    // Small delay to avoid overwhelming the API
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                overlayVisible = true;
+                showOverlayLoading(false);
+                updateOverlayLegend();
+                console.log(`Weather overlay created for ${route.name} with ${weatherOverlayData.length} data points`);
+
+            } catch (error) {
+                console.error('Error creating weather overlay:', error);
+                showOverlayLoading(false);
+            }
+        }
+
+        // Clear all weather overlay layers
+        function clearWeatherOverlay() {
+            overlayLayers.forEach(layer => {
+                map.removeLayer(layer);
+            });
+            overlayLayers = [];
+            overlayVisible = false;
+            hideOverlayLegend();
+        }
+
+        // Toggle weather overlay visibility
+        function toggleWeatherOverlay() {
+            if (overlayVisible) {
+                clearWeatherOverlay();
+            } else {
+                const sourcePort = document.getElementById('sourcePort').value;
+                const destPort = document.getElementById('destinationPort').value;
+                const routeKey = `${sourcePort}_${destPort}`;
+                
+                if (PREDEFINED_ROUTES[routeKey]) {
+                    createWeatherOverlay(routeKey);
+                } else {
+                    alert('Please generate a route first to view weather overlay');
+                }
+            }
+        }
+
+        // Show/hide loading indicator for overlay
+        function showOverlayLoading(show) {
+            // You can add a loading indicator in the UI here
+            console.log(show ? 'Loading weather overlay...' : 'Weather overlay loaded');
+        }
+
+        // Update overlay legend
+        function updateOverlayLegend() {
+            const legendHtml = `
+                <div class="weather-overlay-legend" style="position: absolute; top: 10px; right: 10px; background: rgba(15, 23, 42, 0.9); padding: 10px; border-radius: 8px; color: white; font-size: 12px; z-index: 1000;">
+                    <h4 class="font-bold mb-2">Wind Speed Zones</h4>
+                    <div class="space-y-1">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #10B981;"></div>
+                            <span>Safe (0-${WIND_THRESHOLDS.low} m/s)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #F59E0B;"></div>
+                            <span>Moderate (${WIND_THRESHOLDS.low}-${WIND_THRESHOLDS.medium} m/s)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #EF4444;"></div>
+                            <span>Dangerous (${WIND_THRESHOLDS.medium}+ m/s)</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add legend to map container
+            const mapContainer = document.getElementById('map');
+            const existingLegend = mapContainer.querySelector('.weather-overlay-legend');
+            if (existingLegend) {
+                existingLegend.remove();
+            }
+            mapContainer.insertAdjacentHTML('beforeend', legendHtml);
+        }
+
+        // Hide overlay legend
+        function hideOverlayLegend() {
+            const mapContainer = document.getElementById('map');
+            const legend = mapContainer.querySelector('.weather-overlay-legend');
+            if (legend) {
+                legend.remove();
+            }
+        }
+
+        // Update temperature overlay legend
+        function updateTemperatureLegend() {
+            const legendHtml = `
+                <div class="weather-overlay-legend" style="position: absolute; top: 10px; right: 10px; background: rgba(15, 23, 42, 0.95); padding: 12px; border-radius: 8px; color: white; font-size: 12px; z-index: 1000; border: 2px solid #10B981;">
+                    <h4 class="font-bold mb-2 text-green-400">🌡️ Temperature Zones</h4>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #3B82F6;"></div>
+                            <span>Cold (&lt;10°C)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #10B981;"></div>
+                            <span>Cool (10-20°C)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #F59E0B;"></div>
+                            <span>Warm (20-25°C)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #EF4444;"></div>
+                            <span>Hot (25°C+)</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-300">
+                        Click zones for detailed temperature data
+                    </div>
+                </div>
+            `;
+            
+            const mapContainer = document.getElementById('map');
+            const existingLegend = mapContainer.querySelector('.weather-overlay-legend');
+            if (existingLegend) existingLegend.remove();
+            mapContainer.insertAdjacentHTML('beforeend', legendHtml);
+        }
+
+        // Update precipitation overlay legend
+        function updatePrecipitationLegend() {
+            const legendHtml = `
+                <div class="weather-overlay-legend" style="position: absolute; top: 10px; right: 10px; background: rgba(15, 23, 42, 0.95); padding: 12px; border-radius: 8px; color: white; font-size: 12px; z-index: 1000; border: 2px solid #6366F1;">
+                    <h4 class="font-bold mb-2 text-purple-400">🌧️ Precipitation Zones</h4>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #06B6D4;"></div>
+                            <span>Light (&lt;30% intensity)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #3B82F6;"></div>
+                            <span>Moderate (30-60% intensity)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 mr-2 rounded-full" style="background: #6366F1;"></div>
+                            <span>Heavy (60%+ intensity)</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-300">
+                        Based on cloud cover, humidity &amp; rain data<br>
+                        Click zones for detailed weather info
+                    </div>
+                </div>
+            `;
+            
+            const mapContainer = document.getElementById('map');
+            const existingLegend = mapContainer.querySelector('.weather-overlay-legend');
+            if (existingLegend) existingLegend.remove();
+            mapContainer.insertAdjacentHTML('beforeend', legendHtml);
+        }
+
+        // Initialize map without overlay button on map
+        document.addEventListener('DOMContentLoaded', function() {
+            // Map initialization without overlay button
+        });
+
+        // Create temperature overlay with gradient zones
+        async function createTemperatureOverlay(routeName) {
+            if (!PREDEFINED_ROUTES[routeName]) {
+                console.error('Route not found:', routeName);
+                return;
+            }
+
+            const route = PREDEFINED_ROUTES[routeName];
+            const sampledWaypoints = route.waypoints.filter((_, index) => index % 6 === 0);
+            
+            for (let i = 0; i < sampledWaypoints.length; i++) {
+                const waypoint = sampledWaypoints[i];
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                    
+                    const response = await fetch(
+                        `https://api.openweathermap.org/data/2.5/weather?lat=${waypoint[0]}&lon=${waypoint[1]}&appid=${OPENWEATHER_API_KEY}&units=metric`
+                    );
+                    
+                    if (!response.ok) continue;
+                    
+                    const data = await response.json();
+                    const temp = data.main.temp;
+                    
+                    // Temperature color coding
+                    let tempColor, tempIntensity;
+                    if (temp < 10) {
+                        tempColor = '#3B82F6'; // Blue - Cold
+                        tempIntensity = 'Cold';
+                    } else if (temp < 20) {
+                        tempColor = '#10B981'; // Green - Cool
+                        tempIntensity = 'Cool';
+                    } else if (temp < 25) {
+                        tempColor = '#F59E0B'; // Yellow - Warm
+                        tempIntensity = 'Warm';
+                    } else {
+                        tempColor = '#EF4444'; // Red - Hot
+                        tempIntensity = 'Hot';
+                    }
+                    
+                    // Create temperature zone circle
+                    const tempCircle = L.circle([waypoint[0], waypoint[1]], {
+                        radius: 180000, // 180km radius
+                        fillColor: tempColor,
+                        color: tempColor,
+                        weight: 2,
+                        opacity: 0.7,
+                        fillOpacity: 0.3
+                    }).addTo(map);
+                    
+                    // Add glow effect
+                    const glowCircle = L.circle([waypoint[0], waypoint[1]], {
+                        radius: 200000,
+                        fillColor: tempColor,
+                        color: tempColor,
+                        weight: 1,
+                        opacity: 0.4,
+                        fillOpacity: 0.1
+                    }).addTo(map);
+                    
+                    // Temperature popup
+                    const popupContent = `
+                        <div class="elegant-tooltip">
+                            <h3 class="font-bold text-lg mb-2">🌡️ Temperature Zone</h3>
+                            <div class="space-y-1">
+                                <div><strong>Temperature:</strong> ${temp}°C</div>
+                                <div><strong>Feels like:</strong> ${data.main.feels_like}°C</div>
+                                <div><strong>Intensity:</strong> ${tempIntensity}</div>
+                                <div><strong>Humidity:</strong> ${data.main.humidity}%</div>
+                                <div><strong>Pressure:</strong> ${data.main.pressure} hPa</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    tempCircle.bindPopup(popupContent);
+                    tempOverlayLayers.push(tempCircle, glowCircle);
+                    
+                } catch (error) {
+                    console.error('Error fetching temperature data:', error);
+                }
+            }
+        }
+
+        // Create precipitation overlay
+        async function createPrecipitationOverlay(routeName) {
+            if (!PREDEFINED_ROUTES[routeName]) {
+                console.error('Route not found:', routeName);
+                return;
+            }
+
+            const route = PREDEFINED_ROUTES[routeName];
+            const sampledWaypoints = route.waypoints.filter((_, index) => index % 6 === 0);
+            
+            for (let i = 0; i < sampledWaypoints.length; i++) {
+                const waypoint = sampledWaypoints[i];
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                    
+                    const response = await fetch(
+                        `https://api.openweathermap.org/data/2.5/weather?lat=${waypoint[0]}&lon=${waypoint[1]}&appid=${OPENWEATHER_API_KEY}&units=metric`
+                    );
+                    
+                    if (!response.ok) continue;
+                    
+                    const data = await response.json();
+                    const clouds = data.clouds.all;
+                    const humidity = data.main.humidity;
+                    const rain = data.rain ? data.rain['1h'] || 0 : 0;
+                    
+                    // Calculate precipitation intensity from available data
+                    let precipIntensity = Math.max(rain * 10, (clouds + humidity) / 20);
+                    
+                    // Always show zones - remove threshold
+                    console.log(`Precipitation data for ${waypoint[0]} ${waypoint[1]}: clouds=${clouds}%, humidity=${humidity}%, rain=${rain}mm/h, intensity=${precipIntensity}`);
+                    
+                    // Precipitation color coding - lower thresholds for better visibility
+                    let precipColor, precipLevel;
+                    if (precipIntensity < 15) {
+                        precipColor = '#06B6D4'; // Light blue - Light
+                        precipLevel = 'Light';
+                    } else if (precipIntensity < 35) {
+                        precipColor = '#3B82F6'; // Blue - Moderate
+                        precipLevel = 'Moderate';
+                    } else {
+                        precipColor = '#6366F1'; // Indigo - Heavy
+                        precipLevel = 'Heavy';
+                    }
+                    
+                    // Create precipitation zone
+                    const precipCircle = L.circle([waypoint[0], waypoint[1]], {
+                        radius: 150000, // 150km radius
+                        fillColor: precipColor,
+                        color: precipColor,
+                        weight: 3,
+                        opacity: 0.8,
+                        fillOpacity: 0.4
+                    }).addTo(map);
+                    
+                    // Add animated rain effect
+                    const rainEffect = L.circle([waypoint[0], waypoint[1]], {
+                        radius: 170000,
+                        fillColor: precipColor,
+                        color: precipColor,
+                        weight: 1,
+                        opacity: 0.3,
+                        fillOpacity: 0.1,
+                        className: 'pulse-animation'
+                    }).addTo(map);
+                    
+                    // Precipitation popup
+                    const popupContent = `
+                        <div class="elegant-tooltip">
+                            <h3 class="font-bold text-lg mb-2">🌧️ Precipitation Zone</h3>
+                            <div class="space-y-1">
+                                <div><strong>Intensity:</strong> ${precipLevel}</div>
+                                <div><strong>Cloud Cover:</strong> ${clouds}%</div>
+                                <div><strong>Humidity:</strong> ${humidity}%</div>
+                                ${rain > 0 ? `<div><strong>Rain:</strong> ${rain}mm/h</div>` : ''}
+                                <div><strong>Conditions:</strong> ${data.weather[0].description}</div>
+                                <div><strong>Visibility:</strong> ${(data.visibility / 1000).toFixed(1)}km</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    precipCircle.bindPopup(popupContent);
+                    precipOverlayLayers.push(precipCircle, rainEffect);
+                    
+                } catch (error) {
+                    console.error('Error fetching precipitation data:', error);
+                }
+            }
+        }
+
+        // Create elegant wind speed overlay with clean hover-based indicators
+        async function createWindSpeedOverlay(routeName) {
+            if (!PREDEFINED_ROUTES[routeName]) {
+                console.error('Route not found:', routeName);
+                return;
+            }
+
+            const route = PREDEFINED_ROUTES[routeName];
+            clearAllOverlays();
+            
+            showOverlayLoading(true, 'wind');
+
+            try {
+                const sampledWaypoints = route.waypoints.filter((_, index) => index % 6 === 0);
+                
+                for (let i = 0; i < sampledWaypoints.length; i++) {
+                    const [lat, lon] = sampledWaypoints[i];
+                    const weatherData = await fetchWeatherData(lat, lon);
+
+                    const windSpeed = weatherData.windSpeed;
+                    const windDirection = weatherData.windDirection || 0;
+                    const color = getWindSpeedColor(windSpeed);
+                    
+                    // Create subtle, clean wind indicator
+                    const intensity = Math.min(windSpeed / 15, 1); // Normalize to 0-1
+                    const size = 12 + (intensity * 8); // 12-20px based on intensity
+                    
+                    const windIcon = L.divIcon({
+                        html: `
+                            <div class="clean-wind-indicator" style="
+                                width: ${size}px;
+                                height: ${size}px;
+                                position: relative;
+                                cursor: pointer;
+                            ">
+                                <!-- Subtle pulsing circle -->
+                                <div class="wind-pulse-ring" style="
+                                    position: absolute;
+                                    top: 50%;
+                                    left: 50%;
+                                    transform: translate(-50%, -50%);
+                                    width: ${size * 2}px;
+                                    height: ${size * 2}px;
+                                    border: 2px solid ${color};
+                                    border-radius: 50%;
+                                    opacity: 0.3;
+                                    animation: windRipple 2s ease-out infinite;
+                                "></div>
+                                
+                                <!-- Main indicator dot -->
+                                <div class="wind-dot" style="
+                                    position: absolute;
+                                    top: 50%;
+                                    left: 50%;
+                                    transform: translate(-50%, -50%);
+                                    width: ${size}px;
+                                    height: ${size}px;
+                                    background: radial-gradient(circle, ${color} 0%, ${color}aa 70%, transparent 100%);
+                                    border-radius: 50%;
+                                    box-shadow: 0 0 ${size/2}px ${color}66;
+                                    transition: all 0.3s ease;
+                                "></div>
+                                
+                                <!-- Wind direction line (subtle) -->
+                                <div class="wind-direction-line" style="
+                                    position: absolute;
+                                    top: 50%;
+                                    left: 50%;
+                                    width: ${size * 1.5}px;
+                                    height: 2px;
+                                    background: linear-gradient(90deg, ${color}, transparent);
+                                    transform: translate(-50%, -50%) rotate(${windDirection}deg);
+                                    opacity: 0.6;
+                                    transition: all 0.3s ease;
+                                "></div>
+                            </div>
+                        `,
+                        className: 'elegant-wind-marker',
+                        iconSize: [size * 2, size * 2],
+                        iconAnchor: [size, size]
+                    });
+
+                    const windMarker = L.marker([lat, lon], { icon: windIcon }).addTo(map);
+
+                    // Enhanced hover popup with smooth animations
+                    windMarker.bindTooltip(`
+                        <div class="elegant-wind-tooltip" style="
+                            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+                            color: white;
+                            padding: 12px 16px;
+                            border-radius: 12px;
+                            border: 1px solid ${color}66;
+                            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                            backdrop-filter: blur(10px);
+                            font-size: 12px;
+                            min-width: 200px;
+                        ">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <div style="
+                                    width: 8px;
+                                    height: 8px;
+                                    background: ${color};
+                                    border-radius: 50%;
+                                    margin-right: 8px;
+                                    box-shadow: 0 0 8px ${color}66;
+                                "></div>
+                                <strong style="color: ${color};">Wind Conditions</strong>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+                                <div><strong>Speed:</strong> ${windSpeed.toFixed(1)} m/s</div>
+                                <div><strong>Knots:</strong> ${(windSpeed * 1.944).toFixed(1)} kts</div>
+                                <div><strong>Direction:</strong> ${windDirection.toFixed(0)}°</div>
+                                <div><strong>Cardinal:</strong> ${getWindDirectionName(windDirection)}</div>
+                            </div>
+                            <div style="
+                                margin-top: 8px;
+                                padding: 4px 8px;
+                                background: ${color}22;
+                                border-radius: 6px;
+                                text-align: center;
+                                font-weight: bold;
+                                font-size: 10px;
+                                color: ${color};
+                            ">
+                                ${getBeaufortScale(windSpeed)}
+                            </div>
+                        </div>
+                    `, {
+                        permanent: false,
+                        direction: 'top',
+                        offset: [0, -10],
+                        className: 'elegant-tooltip'
+                    });
+
+                    windOverlayLayers.push(windMarker);
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                windOverlayVisible = true;
+                currentOverlayType = 'wind';
+                showOverlayLoading(false, 'wind');
+                updateCleanWindLegend();
+                
+            } catch (error) {
+                console.error('Error creating wind overlay:', error);
+                showOverlayLoading(false, 'wind');
+            }
+        }
+
+        // Helper functions for wind data
+        function getWindDirectionName(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            return directions[Math.round(degrees / 22.5) % 16];
+        }
+
+        function getBeaufortScale(windSpeed) {
+            if (windSpeed < 0.3) return 'Force 0 (Calm)';
+            if (windSpeed < 1.6) return 'Force 1 (Light Air)';
+            if (windSpeed < 3.4) return 'Force 2 (Light Breeze)';
+            if (windSpeed < 5.5) return 'Force 3 (Gentle Breeze)';
+            if (windSpeed < 8.0) return 'Force 4 (Moderate Breeze)';
+            if (windSpeed < 10.8) return 'Force 5 (Fresh Breeze)';
+            if (windSpeed < 13.9) return 'Force 6 (Strong Breeze)';
+            return 'Force 7+ (High Wind)';
+        }
+
+        function getSeaState(windSpeed) {
+            if (windSpeed < 2) return 'Calm (0-0.1m waves)';
+            if (windSpeed < 4) return 'Smooth (0.1-0.5m waves)';
+            if (windSpeed < 6) return 'Slight (0.5-1.25m waves)';
+            if (windSpeed < 8) return 'Moderate (1.25-2.5m waves)';
+            return 'Rough (2.5m+ waves)';
+        }
+
+        // Clear all overlays
+        function clearAllOverlays() {
+            overlayLayers.forEach(layer => map.removeLayer(layer));
+            windOverlayLayers.forEach(layer => map.removeLayer(layer));
+            tempOverlayLayers.forEach(layer => map.removeLayer(layer));
+            precipOverlayLayers.forEach(layer => map.removeLayer(layer));
+            overlayLayers = [];
+            windOverlayLayers = [];
+            tempOverlayLayers = [];
+            precipOverlayLayers = [];
+            overlayVisible = false;
+            windOverlayVisible = false;
+            tempOverlayVisible = false;
+            precipOverlayVisible = false;
+            currentOverlayType = null;
+            hideOverlayLegend();
+        }
+
+        // Update clean wind overlay legend
+        function updateCleanWindLegend() {
+            const legendHtml = `
+                <div class="weather-overlay-legend" style="position: absolute; top: 10px; right: 10px; background: rgba(15, 23, 42, 0.95); padding: 12px; border-radius: 8px; color: white; font-size: 12px; z-index: 1000; border: 2px solid #F59E0B;">
+                    <h4 class="font-bold mb-2 text-yellow-400">🌪️ Wind Indicators</h4>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 mr-2 rounded-full" style="background: radial-gradient(circle, #10B981 0%, #10B981aa 70%, transparent 100%); box-shadow: 0 0 6px #10B98166;"></div>
+                            <span>Calm (0-${WIND_THRESHOLDS.low} m/s)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 mr-2 rounded-full" style="background: radial-gradient(circle, #F59E0B 0%, #F59E0Baa 70%, transparent 100%); box-shadow: 0 0 6px #F59E0B66;"></div>
+                            <span>Moderate (${WIND_THRESHOLDS.low}-${WIND_THRESHOLDS.medium} m/s)</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 mr-2 rounded-full" style="background: radial-gradient(circle, #EF4444 0%, #EF4444aa 70%, transparent 100%); box-shadow: 0 0 6px #EF444466;"></div>
+                            <span>Strong (${WIND_THRESHOLDS.medium}+ m/s)</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-300">
+                        Hover over indicators for detailed wind data<br>
+                        Dot size shows wind intensity
+                    </div>
+                </div>
+            `;
+            
+            const mapContainer = document.getElementById('map');
+            const existingLegend = mapContainer.querySelector('.weather-overlay-legend');
+            if (existingLegend) existingLegend.remove();
+            mapContainer.insertAdjacentHTML('beforeend', legendHtml);
+        }
+
+        // Enhanced loading indicator
+        function showOverlayLoading(show, type = 'wave') {
+            const button = document.querySelector(`#${type}OverlayBtn`);
+            if (button) {
+                if (show) {
+                    button.innerHTML = `<i class="fas fa-spinner fa-spin text-sm"></i><span class="text-sm font-medium">Loading...</span>`;
+                    button.style.pointerEvents = 'none';
+                } else {
+                    const icon = type === 'wind' ? 'fa-wind' : 'fa-water';
+                    const text = type === 'wind' ? 'Wind Speed' : 'Wave Overlay';
+                    button.innerHTML = `<i class="fas ${icon} text-sm"></i><span class="text-sm font-medium">${text}</span>`;
+                    button.style.pointerEvents = 'auto';
+                }
+            }
+        }
+
+        // Button event handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                // Wave overlay button
+                document.getElementById('waveOverlayBtn')?.addEventListener('click', function() {
+                    if (currentOverlayType === 'wave') {
+                        clearAllOverlays();
+                    } else {
+                        const sourcePort = document.getElementById('sourcePort').value;
+                        const destPort = document.getElementById('destinationPort').value;
+                        const routeKey = `${sourcePort}_${destPort}`;
+                        if (PREDEFINED_ROUTES[routeKey]) {
+                            createWeatherOverlay(routeKey);
+                        } else {
+                            alert('Please generate a route first');
+                        }
+                    }
+                });
+
+                // Wind overlay button  
+                document.getElementById('windOverlayBtn')?.addEventListener('click', function() {
+                    if (currentOverlayType === 'wind') {
+                        clearAllOverlays();
+                    } else {
+                        const sourcePort = document.getElementById('sourcePort').value;
+                        const destPort = document.getElementById('destinationPort').value;
+                        const routeKey = `${sourcePort}_${destPort}`;
+                        if (PREDEFINED_ROUTES[routeKey]) {
+                            createWindSpeedOverlay(routeKey);
+                        } else {
+                            alert('Please generate a route first');
+                        }
+                    }
+                });
+
+                // Temperature overlay button
+                document.getElementById('tempOverlayBtn')?.addEventListener('click', function() {
+                    if (currentOverlayType === 'temperature') {
+                        clearAllOverlays();
+                    } else {
+                        clearAllOverlays();
+                        const spinner = this.querySelector('.loading-spinner');
+                        spinner.classList.remove('hidden');
+                        this.disabled = true;
+                        
+                        createTemperatureOverlay('gopalpur_newharbour').then(() => {
+                            tempOverlayVisible = true;
+                            currentOverlayType = 'temperature';
+                            updateTemperatureLegend();
+                        }).catch(error => {
+                            console.error('Error creating temperature overlay:', error);
+                        }).finally(() => {
+                            spinner.classList.add('hidden');
+                            this.disabled = false;
+                        });
+                    }
+                });
+
+                // Precipitation overlay button
+                document.getElementById('precipOverlayBtn')?.addEventListener('click', function() {
+                    if (currentOverlayType === 'precipitation') {
+                        clearAllOverlays();
+                    } else {
+                        clearAllOverlays();
+                        const spinner = this.querySelector('.loading-spinner');
+                        spinner.classList.remove('hidden');
+                        this.disabled = true;
+                        
+                        createPrecipitationOverlay('gopalpur_newharbour').then(() => {
+                            precipOverlayVisible = true;
+                            currentOverlayType = 'precipitation';
+                            updatePrecipitationLegend();
+                        }).catch(error => {
+                            console.error('Error creating precipitation overlay:', error);
+                        }).finally(() => {
+                            spinner.classList.add('hidden');
+                            this.disabled = false;
+                        });
+                    }
+                });
+
+                // Clear all button
+                document.getElementById('clearOverlayBtn')?.addEventListener('click', function() {
+                    clearAllOverlays();
+                });
+            }, 1000);
+        });
+
     </script>
 </body>
 </html>
