@@ -1281,7 +1281,7 @@
                                 <div class="w-3 h-3 bg-red-400 rounded-full"></div>
                                 <span class="text-xs text-red-300">Base Route</span>
                                 <div class="w-3 h-3 bg-green-400 rounded-full ml-4"></div>
-                                <span class="text-xs text-green-300">Optimized</span>
+                                <span class="text-xs text-green-300">Actual Route</span>
                             </div>
                         </h3>
                         
@@ -1607,7 +1607,7 @@
                     [40.6676, -74.0488], [40.7081, -73.9779]
                 ]
             },
-            'rotterdam_singapore_weather': {
+            'rotterdam_singapore': {
                 name: 'Rotterdam → Singapore',
                 waypoints: [
                     [30.213982, 32.557983], [29.7, 32.6], [27.9, 33.75],
@@ -1927,12 +1927,134 @@
                     baseFuelCostEl.textContent = '$' + baseFuelCost.toFixed(0);
                 }
                 
-                // Calculate optimized values (simulated improvements)
+                // Calculate optimized values using real environmental data if available
                 const optimizedDurationEl = document.getElementById('optimizedRouteDuration');
                 const optimizedFuelConsumptionEl = document.getElementById('optimizedFuelConsumption');
                 const optimizedFuelCostEl = document.getElementById('optimizedFuelCost');
                 
-                // Apply environmental optimization factors
+                // Try to use real environmental calculations
+                if (waypointWeatherData && waypointWeatherData.length > 0) {
+                    const sourcePort = document.getElementById('sourcePort').value;
+                    const destPort = document.getElementById('destinationPort').value;
+                    const distance = calculateRouteDistance(sourcePort, destPort);
+                    const currentSpeed = parseInt(document.getElementById('speedLimit').value);
+                    const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
+                    const fuelConsumptionL100nm = parseFloat(document.getElementById('fuelConsumption').value);
+                    
+                    const optimizedMetrics = calculateOptimizedRouteMetrics(
+                        waypointWeatherData, 
+                        distance, 
+                        currentSpeed, 
+                        fuelPrice, 
+                        fuelConsumptionL100nm
+                    );
+                    
+                    if (optimizedMetrics) {
+                        if (optimizedDurationEl) {
+                            optimizedDurationEl.textContent = optimizedMetrics.optimizedDuration;
+                        }
+                        
+                        if (optimizedFuelConsumptionEl) {
+                            optimizedFuelConsumptionEl.textContent = optimizedMetrics.optimizedFuelMT.toFixed(1) + ' MT';
+                        }
+                        
+                        if (optimizedFuelCostEl) {
+                            optimizedFuelCostEl.textContent = '$' + optimizedMetrics.optimizedCost.toFixed(0);
+                        }
+                        
+                        // Update environmental score
+                        const envScoreEl = document.querySelector('.text-green-400.font-bold.text-xl');
+                        if (envScoreEl) {
+                            envScoreEl.textContent = `${optimizedMetrics.environmentalScore}/100`;
+                        }
+                        
+                        // Update environmental factors display
+                        updateEnvironmentalFactorsDisplay(waypointWeatherData);
+                        
+                        // Update savings display
+                        const savings = baseFuelCost - optimizedMetrics.optimizedCost;
+                        let savingsText;
+                        if (savings > 0) {
+                            savingsText = `$${savings.toFixed(0)} saved`;
+                        } else if (savings < 0) {
+                            savingsText = `$${Math.abs(savings).toFixed(0)} additional cost`;
+                        } else {
+                            savingsText = `$0 no change`;
+                        }
+                        
+                        const savingsElements = document.querySelectorAll('.text-green-400');
+                        savingsElements.forEach(el => {
+                            if (el.textContent.includes('saved') || el.textContent.includes('additional cost') || el.textContent.includes('no change')) {
+                                el.textContent = savingsText;
+                                // Update color based on result
+                                if (savings < 0) {
+                                    el.className = el.className.replace('text-green-400', 'text-red-400');
+                                } else if (savings > 0) {
+                                    el.className = el.className.replace('text-red-400', 'text-green-400');
+                                } else {
+                                    el.className = el.className.replace('text-red-400', 'text-yellow-400').replace('text-green-400', 'text-yellow-400');
+                                }
+                            }
+                        });
+                        
+                        // Update improvement percentages
+                        const baseTotalHours = parseFloat(baseDuration.replace(/[dhm]/g, ' ').split(' ').reduce((total, part, index) => {
+                            const num = parseFloat(part) || 0;
+                            if (baseDuration.includes('d') && index === 0) return total + num * 24;
+                            if (baseDuration.includes('h') && (index === 1 || !baseDuration.includes('d'))) return total + num;
+                            return total;
+                        }, 0));
+                        
+                        const timeChangePercent = ((baseTotalHours - optimizedMetrics.optimizedDurationHours) / baseTotalHours * 100);
+                        const fuelChangePercent = ((baseFuelCost - optimizedMetrics.optimizedCost) / baseFuelCost * 100);
+                        
+                        // Format time change display
+                        let timeDisplayText;
+                        if (timeChangePercent > 0) {
+                            timeDisplayText = `${timeChangePercent.toFixed(0)}% improvement`;
+                        } else if (timeChangePercent < 0) {
+                            timeDisplayText = `${Math.abs(timeChangePercent).toFixed(0)}% setback`;
+                        } else {
+                            timeDisplayText = `0% change`;
+                        }
+                        
+                        // Format fuel change display
+                        let fuelDisplayText;
+                        if (fuelChangePercent > 0) {
+                            fuelDisplayText = `${fuelChangePercent.toFixed(0)}% reduction`;
+                        } else if (fuelChangePercent < 0) {
+                            fuelDisplayText = `${Math.abs(fuelChangePercent).toFixed(0)}% increase`;
+                        } else {
+                            fuelDisplayText = `0% change`;
+                        }
+                        
+                        // Update percentage displays
+                        const percentageElements = document.querySelectorAll('.text-green-400');
+                        percentageElements.forEach(el => {
+                            if (el.textContent.includes('improvement') || el.textContent.includes('setback')) {
+                                el.textContent = timeDisplayText;
+                                // Update color based on result
+                                if (timeChangePercent < 0) {
+                                    el.className = el.className.replace('text-green-400', 'text-red-400');
+                                } else {
+                                    el.className = el.className.replace('text-red-400', 'text-green-400');
+                                }
+                            } else if (el.textContent.includes('reduction') || el.textContent.includes('increase')) {
+                                el.textContent = fuelDisplayText;
+                                // Update color based on result
+                                if (fuelChangePercent < 0) {
+                                    el.className = el.className.replace('text-green-400', 'text-red-400');
+                                } else {
+                                    el.className = el.className.replace('text-red-400', 'text-green-400');
+                                }
+                            }
+                        });
+                        
+                        return; // Exit early if real calculations succeeded
+                    }
+                }
+                
+                // Fallback to simulated improvements if no weather data available
                 const timeImprovement = 0.17; // 17% improvement
                 const fuelImprovement = 0.22; // 22% reduction
                 
@@ -1982,6 +2104,284 @@
             } catch (error) {
                 console.error('Error updating analytics dashboard:', error);
             }
+        }
+        
+        // Update environmental factors display in Advanced Analytics Dashboard
+        function updateEnvironmentalFactorsDisplay(waypointWeatherData) {
+            if (!waypointWeatherData || waypointWeatherData.length === 0) {
+                return;
+            }
+            
+            try {
+                // Calculate average environmental impacts across all waypoints
+                let totalWindAssistance = 0;
+                let totalWaveResistance = 0;
+                let favorableConditions = 0;
+                
+                waypointWeatherData.forEach(waypoint => {
+                    if (waypoint.windSpeed && waypoint.windDirection && waypoint.movementDirection) {
+                        const windImpact = calculateWindImpact(waypoint.windSpeed, waypoint.windDirection, waypoint.movementDirection);
+                        // Convert speed factor to assistance percentage (1.0 = 0%, >1.0 = positive, <1.0 = negative)
+                        const windAssistancePercent = Math.max(0, Math.min(100, (windImpact.speedFactor - 0.8) * 250));
+                        totalWindAssistance += windAssistancePercent;
+                    }
+                    
+                    if (waypoint.waveHeight && waypoint.swellHeight && waypoint.wavePeriod) {
+                        const waveImpact = calculateWaveResistance(waypoint.waveHeight, waypoint.swellHeight, waypoint.wavePeriod);
+                        // Convert wave resistance to percentage (1.0 = 50%, <1.0 = less resistance, >1.0 = more resistance)
+                        const waveResistancePercent = Math.max(0, Math.min(100, (2.0 - waveImpact.speedFactor) * 50));
+                        totalWaveResistance += waveResistancePercent;
+                    }
+                    
+                    // Count favorable conditions (low waves + beneficial wind)
+                    if (waypoint.waveHeight < 2.0 && waypoint.swellHeight < 1.5) {
+                        favorableConditions++;
+                    }
+                });
+                
+                // Calculate averages
+                const avgWindAssistance = Math.round(totalWindAssistance / waypointWeatherData.length);
+                const avgWaveResistance = Math.round(totalWaveResistance / waypointWeatherData.length);
+                const favorableConditionsPercent = Math.round((favorableConditions / waypointWeatherData.length) * 100);
+                
+                // Update wind assistance progress bar
+                const windProgressBar = document.querySelector('.bg-green-500[style*="width: 72%"]');
+                const windPercentageText = document.querySelector('.text-green-400:contains("72%")');
+                if (windProgressBar) {
+                    windProgressBar.style.width = `${avgWindAssistance}%`;
+                }
+                if (windPercentageText) {
+                    windPercentageText.textContent = `${avgWindAssistance}%`;
+                }
+                
+                // Update wave conditions progress bar
+                const waveProgressBar = document.querySelector('.bg-yellow-500[style*="width: 45%"]');
+                const wavePercentageText = document.querySelector('.text-yellow-400:contains("45%")');
+                if (waveProgressBar) {
+                    waveProgressBar.style.width = `${100 - avgWaveResistance}%`;
+                }
+                if (wavePercentageText) {
+                    wavePercentageText.textContent = `${100 - avgWaveResistance}%`;
+                }
+                
+                // Update ocean currents progress bar (use favorable conditions as proxy)
+                const currentProgressBar = document.querySelector('.bg-blue-500[style*="width: 68%"]');
+                const currentPercentageText = document.querySelector('.text-blue-400:contains("68%")');
+                if (currentProgressBar) {
+                    currentProgressBar.style.width = `${favorableConditionsPercent}%`;
+                }
+                if (currentPercentageText) {
+                    currentPercentageText.textContent = `${favorableConditionsPercent}%`;
+                }
+                
+            } catch (error) {
+                console.error('Error updating environmental factors display:', error);
+            }
+        }
+        
+        // Calculate optimized route metrics based on environmental conditions
+        function calculateOptimizedRouteMetrics(waypointWeatherData, baseDistance, baseSpeed, baseFuelPrice, baseFuelConsumptionL100nm) {
+            try {
+                if (!waypointWeatherData || waypointWeatherData.length === 0) {
+                    return null;
+                }
+                
+                let totalOptimizedTime = 0;
+                let totalOptimizedFuelConsumption = 0;
+                const segmentDistance = baseDistance / waypointWeatherData.length;
+                
+                // Process each waypoint's environmental conditions
+                for (let i = 0; i < waypointWeatherData.length; i++) {
+                    const waypoint = waypointWeatherData[i];
+                    
+                    // Calculate environmental impact factors
+                    const environmentalFactors = calculateEnvironmentalImpact(
+                        waypoint.windSpeed,
+                        waypoint.windDirection,
+                        waypoint.movementDirection,
+                        waypoint.waveHeight,
+                        waypoint.swellHeight,
+                        waypoint.wavePeriod
+                    );
+                    
+                    // Apply environmental factors to speed and fuel consumption
+                    const optimizedSpeed = baseSpeed * environmentalFactors.speedMultiplier;
+                    const optimizedFuelRate = baseFuelConsumptionL100nm * environmentalFactors.fuelMultiplier;
+                    
+                    // Calculate segment time and fuel consumption
+                    const segmentTime = segmentDistance / optimizedSpeed;
+                    const segmentFuelConsumption = (optimizedFuelRate * segmentDistance) / 100;
+                    
+                    totalOptimizedTime += segmentTime;
+                    totalOptimizedFuelConsumption += segmentFuelConsumption;
+                }
+                
+                // Convert total fuel consumption to metric tons and calculate cost
+                const totalOptimizedFuelMT = totalOptimizedFuelConsumption / 1000;
+                const totalOptimizedCost = totalOptimizedFuelMT * baseFuelPrice;
+                
+                // Format optimized duration
+                const optimizedDays = Math.floor(totalOptimizedTime / 24);
+                const optimizedHours = Math.floor(totalOptimizedTime % 24);
+                const optimizedMinutes = Math.floor((totalOptimizedTime - Math.floor(totalOptimizedTime)) * 60);
+                
+                let optimizedDurationText = '';
+                if (optimizedDays > 0) optimizedDurationText += `${optimizedDays}d `;
+                if (optimizedHours > 0 || optimizedDays > 0) optimizedDurationText += `${optimizedHours}h `;
+                optimizedDurationText += `${optimizedMinutes}m`;
+                
+                return {
+                    optimizedDuration: optimizedDurationText,
+                    optimizedDurationHours: totalOptimizedTime,
+                    optimizedFuelMT: totalOptimizedFuelMT,
+                    optimizedCost: totalOptimizedCost,
+                    environmentalScore: calculateOverallEnvironmentalScore(waypointWeatherData)
+                };
+                
+            } catch (error) {
+                console.error('Error calculating optimized route metrics:', error);
+                return null;
+            }
+        }
+        
+        // Calculate environmental impact factors for a waypoint
+        function calculateEnvironmentalImpact(windSpeed, windDirection, shipDirection, waveHeight, swellHeight, wavePeriod) {
+            let speedMultiplier = 1.0;
+            let fuelMultiplier = 1.0;
+            
+            // Wind impact calculation
+            if (windSpeed && windDirection && shipDirection) {
+                const windImpact = calculateWindImpact(windSpeed, windDirection, shipDirection);
+                speedMultiplier *= windImpact.speedFactor;
+                fuelMultiplier *= windImpact.fuelFactor;
+            }
+            
+            // Wave and swell resistance calculation
+            if (waveHeight && swellHeight && wavePeriod) {
+                const waveImpact = calculateWaveResistance(waveHeight, swellHeight, wavePeriod);
+                speedMultiplier *= waveImpact.speedFactor;
+                fuelMultiplier *= waveImpact.fuelFactor;
+            }
+            
+            // Ensure multipliers stay within reasonable bounds
+            speedMultiplier = Math.max(0.6, Math.min(1.4, speedMultiplier));
+            fuelMultiplier = Math.max(0.7, Math.min(1.5, fuelMultiplier));
+            
+            return {
+                speedMultiplier: speedMultiplier,
+                fuelMultiplier: fuelMultiplier
+            };
+        }
+        
+        // Calculate wind impact on ship performance
+        function calculateWindImpact(windSpeed, windDirection, shipDirection) {
+            if (!windSpeed || !windDirection || !shipDirection) {
+                return { speedFactor: 1.0, fuelFactor: 1.0 };
+            }
+            
+            // Calculate relative wind angle (difference between wind and ship direction)
+            let relativeWindAngle = Math.abs(windDirection - shipDirection);
+            if (relativeWindAngle > 180) {
+                relativeWindAngle = 360 - relativeWindAngle;
+            }
+            
+            // Convert wind speed from knots to impact factor
+            const windSpeedKnots = windSpeed;
+            const windStrength = Math.min(windSpeedKnots / 30, 1.0); // Normalize to 0-1 scale
+            
+            let speedFactor = 1.0;
+            let fuelFactor = 1.0;
+            
+            // Tailwind (0-45 degrees): Beneficial
+            if (relativeWindAngle <= 45) {
+                speedFactor = 1.0 + (windStrength * 0.15); // Up to 15% speed increase
+                fuelFactor = 1.0 - (windStrength * 0.12); // Up to 12% fuel reduction
+            }
+            // Crosswind (45-135 degrees): Neutral to slightly negative
+            else if (relativeWindAngle <= 135) {
+                speedFactor = 1.0 - (windStrength * 0.05); // Up to 5% speed decrease
+                fuelFactor = 1.0 + (windStrength * 0.08); // Up to 8% fuel increase
+            }
+            // Headwind (135-180 degrees): Negative impact
+            else {
+                speedFactor = 1.0 - (windStrength * 0.20); // Up to 20% speed decrease
+                fuelFactor = 1.0 + (windStrength * 0.25); // Up to 25% fuel increase
+            }
+            
+            return { speedFactor: speedFactor, fuelFactor: fuelFactor };
+        }
+        
+        // Calculate wave resistance impact on ship performance
+        function calculateWaveResistance(waveHeight, swellHeight, wavePeriod) {
+            if (!waveHeight || !swellHeight || !wavePeriod) {
+                return { speedFactor: 1.0, fuelFactor: 1.0 };
+            }
+            
+            // Combined wave effect (wave height + swell height)
+            const totalWaveHeight = waveHeight + (swellHeight * 0.7); // Swell has less impact
+            
+            // Wave period impact (shorter periods = more resistance)
+            const periodFactor = Math.max(0.5, Math.min(1.0, wavePeriod / 8)); // Normalize around 8s period
+            
+            // Calculate resistance based on wave height and period
+            const waveResistance = (totalWaveHeight / 4) * (1 / periodFactor); // Normalize around 4m waves
+            
+            let speedFactor = 1.0;
+            let fuelFactor = 1.0;
+            
+            // Apply wave resistance impact
+            if (totalWaveHeight <= 1.5) {
+                // Calm seas: Slight benefit
+                speedFactor = 1.0 + 0.02;
+                fuelFactor = 1.0 - 0.03;
+            } else if (totalWaveHeight <= 3.0) {
+                // Moderate seas: Minor impact
+                speedFactor = 1.0 - (waveResistance * 0.08);
+                fuelFactor = 1.0 + (waveResistance * 0.10);
+            } else if (totalWaveHeight <= 5.0) {
+                // Rough seas: Significant impact
+                speedFactor = 1.0 - (waveResistance * 0.15);
+                fuelFactor = 1.0 + (waveResistance * 0.20);
+            } else {
+                // Very rough seas: Major impact
+                speedFactor = 1.0 - (waveResistance * 0.25);
+                fuelFactor = 1.0 + (waveResistance * 0.35);
+            }
+            
+            return { speedFactor: speedFactor, fuelFactor: fuelFactor };
+        }
+        
+        // Calculate overall environmental optimization score
+        function calculateOverallEnvironmentalScore(waypointWeatherData) {
+            if (!waypointWeatherData || waypointWeatherData.length === 0) {
+                return 50; // Neutral score
+            }
+            
+            let totalScore = 0;
+            
+            for (const waypoint of waypointWeatherData) {
+                let waypointScore = 50; // Base score
+                
+                // Wind score (0-40 points)
+                if (waypoint.windSpeed && waypoint.windDirection && waypoint.movementDirection) {
+                    const windImpact = calculateWindImpact(waypoint.windSpeed, waypoint.windDirection, waypoint.movementDirection);
+                    waypointScore += (windImpact.speedFactor - 1) * 100; // Convert to score
+                }
+                
+                // Wave score (0-30 points)
+                if (waypoint.waveHeight && waypoint.swellHeight) {
+                    const totalWaves = waypoint.waveHeight + waypoint.swellHeight;
+                    if (totalWaves <= 2) waypointScore += 20;
+                    else if (totalWaves <= 4) waypointScore += 10;
+                    else waypointScore -= 10;
+                }
+                
+                // Ensure score stays within 0-100 range
+                waypointScore = Math.max(0, Math.min(100, waypointScore));
+                totalScore += waypointScore;
+            }
+            
+            return Math.round(totalScore / waypointWeatherData.length);
         }
         
         // Clear route display helper function
@@ -2214,12 +2614,44 @@
                 // Update display
                 updateWaypointWeatherDisplay();
                 
+                // Trigger analytics dashboard update with new environmental data
+                const sourcePort = document.getElementById('sourcePort').value;
+                const destPort = document.getElementById('destinationPort').value;
+                if (sourcePort && destPort && waypointWeatherData.length > 0) {
+                    // Get current route configuration values
+                    const distance = calculateRouteDistance(sourcePort, destPort);
+                    const currentSpeed = parseInt(document.getElementById('speedLimit').value);
+                    const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
+                    const fuelConsumptionL100nm = parseFloat(document.getElementById('fuelConsumption').value);
+                    
+                    // Calculate base metrics
+                    const totalHours = distance / currentSpeed;
+                    const totalFuelL = (distance / 100) * fuelConsumptionL100nm;
+                    const totalFuelMT = totalFuelL / 1000; // Convert liters to metric tons (approximate)
+                    const fuelCost = totalFuelMT * fuelPrice;
+                    
+                    // Format duration
+                    const days = Math.floor(totalHours / 24);
+                    const hours = Math.floor(totalHours % 24);
+                    const minutes = Math.floor((totalHours - Math.floor(totalHours)) * 60);
+                    
+                    let durationText = '';
+                    if (days > 0) durationText += `${days}d `;
+                    if (hours > 0 || days > 0) durationText += `${hours}h `;
+                    durationText += `${minutes}m`;
+                    
+                    // Update analytics dashboard with real environmental calculations
+                    updateAnalyticsDashboard(durationText, totalFuelMT, fuelCost);
+                }
+                
             } catch (error) {
                 console.error('Error fetching waypoint weather:', error);
-                waypointContainer.innerHTML = `
-                    <div class="text-center text-red-400 py-4">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>
-                        Error loading weather data
+                const container = document.getElementById('waypointWeatherDataMain');
+                container.innerHTML = `
+                    <div class="text-center text-red-400 py-8">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Error loading weather data</p>
+                        <p class="text-sm text-ocean-300 mt-2">${error.message}</p>
                     </div>
                 `;
             }
