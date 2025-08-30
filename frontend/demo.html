@@ -1922,6 +1922,12 @@
             waypointWeatherData = []; // Clear previous data
             const waypointContainer = document.getElementById('waypointWeatherDataMain');
             
+            // Get source and destination coordinates for better direction calculations
+            const sourcePort = document.getElementById('sourcePort').value;
+            const destPort = document.getElementById('destinationPort').value;
+            const sourceCoords = PORTS[sourcePort]?.coords;
+            const destCoords = PORTS[destPort]?.coords;
+            
             // Show loading state
             waypointContainer.innerHTML = `
                 <div class="text-center text-ocean-300 py-4">
@@ -1951,6 +1957,10 @@
                         return;
                     }
                     
+                    // Calculate movement direction at this waypoint
+                    const movementDirection = calculateMovementDirection(waypoints, i, sourceCoords, destCoords);
+                    const movementDirectionText = movementDirection ? getWindDirectionText(movementDirection) : 'N/A';
+                    
                     waypointWeatherData.push({
                         index: i + 1,
                         coordinates: waypoint,
@@ -1965,6 +1975,8 @@
                         windWaveHeight: weatherData.windWaveHeight,
                         windWaveDirection: weatherData.windWaveDirection,
                         windWavePeriod: weatherData.windWavePeriod,
+                        movementDirection: movementDirection,
+                        movementDirectionText: movementDirectionText,
                         timestamp: new Date().toISOString()
                     });
                 }
@@ -2087,6 +2099,18 @@
                             </div>
                         </div>
                         
+                        <!-- Ship Movement Direction -->
+                        <div class="mb-2 p-2 bg-purple-900/20 rounded border border-purple-600/30">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-purple-300 font-semibold flex items-center">
+                                    <i class="fas fa-ship mr-1"></i>Ship Direction
+                                </span>
+                                <span class="text-purple-400 font-bold">
+                                    ${data.movementDirectionText} (${data.movementDirection || 'N/A'}°)
+                                </span>
+                            </div>
+                        </div>
+                        
                         <!-- Wind Data -->
                         <div class="grid grid-cols-2 gap-2 mb-2">
                             <div class="text-xs">
@@ -2122,6 +2146,81 @@
             const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
             const index = Math.round(degrees / 22.5) % 16;
             return directions[index];
+        }
+
+        // Calculate bearing (direction) between two coordinates in degrees
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const toRadians = (degrees) => degrees * (Math.PI / 180);
+            const toDegrees = (radians) => radians * (180 / Math.PI);
+            
+            const dLon = toRadians(lon2 - lon1);
+            const lat1Rad = toRadians(lat1);
+            const lat2Rad = toRadians(lat2);
+            
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            
+            let bearing = toDegrees(Math.atan2(y, x));
+            
+            // Normalize to 0-360 degrees
+            bearing = (bearing + 360) % 360;
+            
+            return Math.round(bearing);
+        }
+
+        // Calculate movement direction at a waypoint based on previous and next coordinates
+        function calculateMovementDirection(waypoints, currentIndex, sourceCoords = null, destCoords = null) {
+            const totalWaypoints = waypoints.length;
+            
+            if (totalWaypoints === 0) return null;
+            
+            let fromCoords, toCoords;
+            
+            if (currentIndex === 0) {
+                // First waypoint: direction from source port to this waypoint
+                fromCoords = sourceCoords || waypoints[0];
+                toCoords = waypoints[0];
+                
+                // If we have a next waypoint, use direction to next waypoint instead
+                if (totalWaypoints > 1) {
+                    fromCoords = waypoints[0];
+                    toCoords = waypoints[1];
+                }
+            } else if (currentIndex === totalWaypoints - 1) {
+                // Last waypoint: direction from previous waypoint to destination
+                fromCoords = waypoints[currentIndex - 1];
+                toCoords = destCoords || waypoints[currentIndex];
+                
+                // If no destination provided, use direction from previous waypoint
+                if (!destCoords) {
+                    fromCoords = waypoints[currentIndex - 1];
+                    toCoords = waypoints[currentIndex];
+                }
+            } else {
+                // Middle waypoint: average direction from previous to next waypoint
+                const prevCoords = waypoints[currentIndex - 1];
+                const nextCoords = waypoints[currentIndex + 1];
+                
+                // Calculate bearing from previous to current, and current to next
+                const bearing1 = calculateBearing(prevCoords[0], prevCoords[1], waypoints[currentIndex][0], waypoints[currentIndex][1]);
+                const bearing2 = calculateBearing(waypoints[currentIndex][0], waypoints[currentIndex][1], nextCoords[0], nextCoords[1]);
+                
+                // Average the two bearings (handling circular nature of degrees)
+                let avgBearing = (bearing1 + bearing2) / 2;
+                
+                // Handle cases where bearings cross 0/360 boundary
+                if (Math.abs(bearing1 - bearing2) > 180) {
+                    avgBearing = (avgBearing + 180) % 360;
+                }
+                
+                return Math.round(avgBearing);
+            }
+            
+            if (fromCoords && toCoords) {
+                return calculateBearing(fromCoords[0], fromCoords[1], toCoords[0], toCoords[1]);
+            }
+            
+            return null;
         }
         
         // Enhanced weather chart

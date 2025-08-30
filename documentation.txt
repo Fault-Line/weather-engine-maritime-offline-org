@@ -181,6 +181,88 @@ Based on predefined routes in Weather Document.txt:
 
 All other port combinations fall back to straight-line calculations.
 
+## Ship Movement Direction Calculation
+
+### Overview
+The system calculates the ship's direction of travel at each waypoint along the route, providing accurate heading information similar to Open-Meteo's format but specifically for vessel movement rather than environmental conditions.
+
+### Direction Calculation Functions
+
+#### 1. calculateBearing(lat1, lon1, lat2, lon2)
+Calculates the bearing (direction) between two geographic coordinates using spherical trigonometry:
+
+```javascript
+const toRadians = (degrees) => degrees * (Math.PI / 180);
+const toDegrees = (radians) => radians * (180 / Math.PI);
+
+const dLon = toRadians(lon2 - lon1);
+const lat1Rad = toRadians(lat1);
+const lat2Rad = toRadians(lat2);
+
+const y = Math.sin(dLon) * Math.cos(lat2Rad);
+const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+
+let bearing = toDegrees(Math.atan2(y, x));
+bearing = (bearing + 360) % 360; // Normalize to 0-360 degrees
+```
+
+#### 2. calculateMovementDirection(waypoints, currentIndex, sourceCoords, destCoords)
+Determines ship direction at each waypoint using different logic based on position:
+
+**First Waypoint (Index 0):**
+- Uses direction from source port to next waypoint
+- Provides initial heading from departure port
+
+**Middle Waypoints:**
+- Averages bearing from previous to next waypoint
+- Handles circular degree calculations for smooth directional flow
+- Accounts for 0/360 degree boundary crossings
+
+**Last Waypoint:**
+- Uses direction from previous waypoint to destination port
+- Provides final approach heading to arrival port
+
+### Direction Display Integration
+
+#### Waypoint Weather Data Enhancement
+The `fetchWaypointWeather()` function now includes:
+
+```javascript
+// Calculate movement direction at this waypoint
+const movementDirection = calculateMovementDirection(waypoints, i, sourceCoords, destCoords);
+const movementDirectionText = movementDirection ? getWindDirectionText(movementDirection) : 'N/A';
+
+// Added to waypoint data object:
+movementDirection: movementDirection,
+movementDirectionText: movementDirectionText,
+```
+
+#### Visual Display Format
+Ship direction appears in waypoint weather cards as:
+```
+🚢 Ship Direction: NE (045°)
+```
+
+### Compass Direction Conversion
+Uses 16-point compass system matching Open-Meteo format:
+- N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW
+- Each direction covers 22.5° range
+- Provides both numeric degrees and compass text
+
+### Direction Calculation Examples
+
+| Waypoint Type | From Coordinates | To Coordinates | Calculated Direction | Compass |
+|---------------|------------------|----------------|---------------------|---------|
+| First WP      | Source Port      | Next WP        | 045°               | NE      |
+| Middle WP     | Avg(Prev→Next)   | Smoothed       | 090°               | E       |
+| Last WP       | Previous WP      | Dest Port      | 135°               | SE      |
+
+### Integration Points
+- **Route Generation**: Direction calculated during waypoint weather data fetch
+- **Display Update**: Shown in purple-themed UI section within weather cards
+- **Data Storage**: Stored alongside weather data for each waypoint
+- **Error Handling**: Gracefully handles single waypoints and edge cases
+
 ## Technical Notes
 - Base speed (18 knots) represents the calibration point for fuel consumption rate
 - Speed factor uses power of 2.5 to model realistic maritime fuel consumption curves
@@ -189,3 +271,5 @@ All other port combinations fall back to straight-line calculations.
 - Duration calculation accounts for days, hours, and minutes display
 - Route determination prioritizes predefined waypoint routes over straight-line calculations
 - Earth's radius constant: 3440 nautical miles for Haversine formula
+- Direction calculations use standard mathematical bearing formulas with 0-360° normalization
+- Compass directions follow 16-point system with 22.5° increments per direction
