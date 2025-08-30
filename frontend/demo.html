@@ -1775,8 +1775,12 @@
                     
                     document.getElementById('routeDuration').textContent = durationText;
                     
-                    // Calculate and update fuel cost
-                    const totalFuelLiters = (fuelConsumptionL100nm * distance) / 100;
+                    // Calculate and update fuel cost with speed factor
+                    // Fuel consumption increases with speed (cubic relationship for ship resistance)
+                    const baseSpeed = 18; // Base speed for the consumption rate (matches default slider value)
+                    const speedFactor = Math.pow(currentSpeed / baseSpeed, 2.5); // Speed factor for fuel consumption
+                    const adjustedConsumption = fuelConsumptionL100nm * speedFactor;
+                    const totalFuelLiters = (adjustedConsumption * distance) / 100;
                     // Convert liters directly to MT (assuming fuel density is already factored into L/100nm rate)
                     const totalFuelMT = totalFuelLiters / 1000; // 1000L = 1MT for marine fuel pricing
                     const fuelCost = totalFuelMT * fuelPrice;

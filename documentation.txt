@@ -1,0 +1,191 @@
+# Weather Engine Maritime - Fuel Cost Calculation Documentation
+
+## Overview
+This document explains how the fuel cost calculation works in the maritime weather application, including the order of operations, variables used, and the physics-based speed factor implementation.
+
+## Calculation Flow (updateRouteDisplay function)
+
+### 1. Input Validation and Data Collection
+The system first collects and validates all required inputs:
+
+**Route Parameters:**
+- sourcePort: Selected source port from dropdown
+- destPort: Selected destination port from dropdown
+- distance: Calculated using Haversine formula between port coordinates
+
+**User Settings:**
+- currentSpeed: Speed limit from slider (8-35 knots, default: 18 knots)
+- fuelPrice: Fuel price per MT (metric ton) from input field
+- fuelConsumptionL100nm: Base fuel consumption in liters per 100 nautical miles
+
+### 2. Distance Calculation
+```
+distance = calculateRouteDistance(sourcePort, destPort)
+```
+Uses predefined routes from Weather Document.txt or Haversine formula for port-to-port distance.
+
+### 3. Duration Calculation
+```
+totalHours = distance / currentSpeed
+days = Math.floor(totalHours / 24)
+hours = Math.floor(totalHours % 24)
+minutes = Math.floor((totalHours - Math.floor(totalHours)) * 60)
+```
+
+### 4. Fuel Cost Calculation with Speed Factor
+
+#### Step 4a: Speed Factor Calculation
+```
+baseSpeed = 18 knots (matches default slider value)
+speedFactor = Math.pow(currentSpeed / baseSpeed, 2.5)
+```
+
+**Physics Behind Speed Factor:**
+- Maritime vessels experience exponential increase in resistance with speed
+- Power requirement follows cubic law: Power ∝ Speed³
+- Fuel consumption closely follows power requirement
+- Exponent of 2.5 provides realistic fuel consumption curve for commercial vessels
+
+#### Step 4b: Adjusted Fuel Consumption
+```
+adjustedConsumption = fuelConsumptionL100nm * speedFactor
+```
+
+#### Step 4c: Total Fuel Calculation
+```
+totalFuelLiters = (adjustedConsumption * distance) / 100
+totalFuelMT = totalFuelLiters / 1000  // Convert to metric tons
+```
+
+#### Step 4d: Final Cost Calculation
+```
+fuelCost = totalFuelMT * fuelPrice
+```
+
+## Speed Factor Examples
+
+| Speed (knots) | Speed Factor | Fuel Consumption Multiplier |
+|---------------|--------------|----------------------------|
+| 8             | 0.31         | 31% of base consumption    |
+| 12            | 0.59         | 59% of base consumption    |
+| 18 (base)     | 1.00         | 100% of base consumption   |
+| 24            | 1.68         | 168% of base consumption   |
+| 30            | 2.64         | 264% of base consumption   |
+| 35            | 3.78         | 378% of base consumption   |
+
+## Variable Dependencies
+
+### Input Variables:
+- **fuelPrice**: User-configurable (400-1200 $/MT)
+- **fuelConsumptionL100nm**: User-configurable (2000-10000 L/100nm, default: 3200)
+- **currentSpeed**: User-configurable via slider (8-35 knots, default: 18)
+- **distance**: Calculated from route selection
+
+### Calculated Variables:
+- **speedFactor**: Derived from currentSpeed and baseSpeed
+- **adjustedConsumption**: fuelConsumptionL100nm × speedFactor
+- **totalFuelLiters**: (adjustedConsumption × distance) ÷ 100
+- **totalFuelMT**: totalFuelLiters ÷ 1000
+- **fuelCost**: totalFuelMT × fuelPrice
+
+## Update Triggers
+The fuel cost calculation is triggered when:
+1. Speed slider is moved (speedLimit input event)
+2. Fuel price is changed (fuelPrice input event)
+3. Fuel consumption is changed (fuelConsumption input event)
+4. Route selection is changed (port dropdown changes)
+
+## Display Format
+Final cost is displayed as: `$[cost] ([fuelMT]MT)`
+Example: `$24,590 (24.6MT)`
+
+## Route Determination Logic
+
+### 1. Port Database Structure
+The system maintains a database of four available ports, each containing:
+- Port name and international code (e.g., "Gopalpur Port (INGOP)")
+- Geographical coordinates in latitude and longitude format
+- Country flag identifier
+- Standard maritime port code
+
+Available ports:
+- Gopalpur Port (INGOP) - India
+- New Harbour (INNH) - United States  
+- Rotterdam Port (NLRTM) - Netherlands
+- Singapore Port (SGSIN) - Singapore
+
+### 2. Predefined Routes (PREDEFINED_ROUTES constant)
+Two predefined routes from Weather Document.txt with exact waypoints:
+
+**Route 1: Gopalpur → New Harbour (73 waypoints)**
+- Key: 'gopalpur_newharbour'
+- Total waypoints: 73 precise coordinates
+- Covers complex maritime route with multiple navigation points
+
+**Route 2: Rotterdam → Singapore (40 waypoints)**  
+- Key: 'rotterdam_singapore_weather'
+- Total waypoints: 40 precise coordinates
+- Represents major international shipping lane
+
+### 3. Route Selection Process
+
+#### Step 3a: Route Key Generation
+The system creates a unique identifier by combining the source port name with the destination port name, separated by an underscore. For example, selecting Gopalpur as source and New Harbour as destination creates the key "gopalpur_newharbour".
+
+#### Step 3b: Route Validation
+The system checks that both source and destination ports are selected and that they are different from each other. If the same port is selected for both source and destination, the route is considered invalid.
+
+#### Step 3c: Distance Calculation Logic
+The system uses a two-priority approach to calculate route distances:
+
+**Priority 1 - Predefined Route Method:**
+First, the system checks if a predefined route exists for the selected port combination. If found, it calculates the total distance by adding up the distances between each consecutive waypoint in the route. This method provides the most accurate distance as it follows the actual maritime navigation path.
+
+**Priority 2 - Straight-line Fallback Method:**
+If no predefined route exists, the system falls back to calculating a direct straight-line distance between the source and destination ports. While less accurate than the waypoint method, this ensures the system can still provide distance estimates for any port combination.
+
+### 4. Distance Calculation Methods
+
+#### Method 1: Waypoint-based (Preferred)
+- Uses Haversine formula between consecutive waypoints
+- Accounts for actual navigation route
+- More accurate for fuel and time calculations
+
+#### Method 2: Straight-line (Fallback)
+- Direct Haversine calculation between ports
+- Used when no predefined route exists
+- Less accurate but provides basic functionality
+
+### 5. Haversine Formula Implementation
+The system uses the Haversine formula to calculate distances between geographical coordinates. This formula accounts for the Earth's spherical shape and provides accurate distance measurements in nautical miles. The calculation process involves:
+
+1. Converting latitude and longitude coordinates from degrees to radians
+2. Calculating the differences in latitude and longitude between two points
+3. Applying trigonometric functions to account for the Earth's curvature
+4. Using Earth's radius (3440 nautical miles) to convert the result to distance
+5. Returning the final distance in nautical miles
+
+### 6. Route Visualization Process
+When displaying routes on the map, the system determines which waypoints to show based on the selected route:
+
+**For Predefined Routes:**
+The system retrieves the complete list of waypoints from the predefined route data and displays them as connected points on the map, showing the exact maritime navigation path.
+
+**For Non-Predefined Routes:**
+If no predefined route exists for the selected port combination, the system returns an empty waypoint list, resulting in a simple straight line between the source and destination ports on the map.
+
+### 7. Valid Route Combinations
+Based on predefined routes in Weather Document.txt:
+- **Gopalpur → New Harbour**: 73 waypoints, complex international route
+- **Rotterdam → Singapore**: 40 waypoints, major shipping lane
+
+All other port combinations fall back to straight-line calculations.
+
+## Technical Notes
+- Base speed (18 knots) represents the calibration point for fuel consumption rate
+- Speed factor uses power of 2.5 to model realistic maritime fuel consumption curves
+- Conversion factor: 1000 liters = 1 metric ton (for marine fuel pricing)
+- All calculations use nautical miles as distance unit
+- Duration calculation accounts for days, hours, and minutes display
+- Route determination prioritizes predefined waypoint routes over straight-line calculations
+- Earth's radius constant: 3440 nautical miles for Haversine formula
