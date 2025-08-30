@@ -1779,8 +1779,9 @@
                 // Calculate distance using actual route waypoints
                 const distance = calculateRouteDistance(sourcePort, destPort);
                 document.getElementById('routeDistance').textContent = distance.toFixed(0) + ' nm';                
-                // Calculate duration (based on 18 kts average)
-                const duration = distance / 18;
+                // Calculate duration based on current speed setting
+                const currentSpeed = parseInt(document.getElementById('speedLimit').value);
+                const duration = distance / currentSpeed;
                 const hours = Math.floor(duration);
                 const minutes = Math.floor((duration - hours) * 60);
                 document.getElementById('routeDuration').textContent = `${hours}h ${minutes}m`;                
@@ -3214,7 +3215,10 @@
                 }
             });
             // Speed slider listener
-            document.getElementById('speedLimit').addEventListener('input', updateSpeedSlider);            
+            document.getElementById('speedLimit').addEventListener('input', () => {
+                updateSpeedSlider();
+                updateRouteDisplay(); // Update duration when speed changes
+            });            
             // Status refresh
             if (document.getElementById('refreshStatus')) {
                 document.getElementById('refreshStatus').addEventListener('click', checkAPI);
