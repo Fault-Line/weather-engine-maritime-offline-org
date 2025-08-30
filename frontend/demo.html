@@ -1411,8 +1411,8 @@
         let waypointWeatherData = []; // Store weather data for each waypoint
         const API_BASE = 'http://localhost:8000';
         
-        // Windy API Configuration
-        const WINDY_API_KEY = '8fXdoKoZJNYJivi9shZMtN6KE1TSyaYX'; // Replace with your actual Windy API key        
+        // Open-Meteo API Configuration (Free weather and marine data APIs)
+        // Note: Open-Meteo APIs are free and do not require API keys        
         // Port coordinates database
         const PORTS = {
             gopalpur: { name: 'Gopalpur Port (INGOP)', coords: [30.213982, 32.557983], country: '🇮🇳', code: 'INGOP' },
@@ -1934,8 +1934,8 @@
                 for (let i = 0; i < waypoints.length; i++) {
                     const waypoint = waypoints[i];
                     
-                    // Fetch real weather data from Marine API
-                    const weatherData = await fetchWindyWeatherAPI(waypoint[0], waypoint[1]);
+                    // Fetch real weather data from Open-Meteo Marine API
+                    const weatherData = await fetchOpenMeteoMarineAPI(waypoint[0], waypoint[1]);
                     
                     // Check if API returned an error
                     if (weatherData.error) {
@@ -1983,23 +1983,24 @@
             }
         }
         
-        // Fetch comprehensive marine weather data using Open-Meteo Marine API
-        async function fetchWindyWeatherAPI(lat, lon) {
+        // Fetch comprehensive marine weather data using Open-Meteo APIs
+        // Combines Marine API (waves, swell) + Weather API (wind) for complete maritime data
+        async function fetchOpenMeteoMarineAPI(lat, lon) {
             try {
-                // Open-Meteo Marine API - includes wave height, swell, and wind data
+                // Open-Meteo Marine API - provides wave height, swell, and marine conditions
                 const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,wind_wave_period&timezone=auto`;
                 
-                // Also fetch atmospheric data for wind
+                // Open-Meteo Weather API - provides atmospheric wind data
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=auto`;
                 
-                // Fetch both marine and weather data in parallel
+                // Fetch both Open-Meteo marine and atmospheric data in parallel
                 const [marineResponse, weatherResponse] = await Promise.all([
                     fetch(marineUrl, { method: 'GET', headers: { 'Accept': 'application/json' } }),
                     fetch(weatherUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
                 ]);
                 
                 if (!marineResponse.ok || !weatherResponse.ok) {
-                    throw new Error(`API error: Marine ${marineResponse.status}, Weather ${weatherResponse.status}`);
+                    throw new Error(`Open-Meteo API error: Marine ${marineResponse.status}, Weather ${weatherResponse.status}`);
                 }
                 
                 const [marineData, weatherData] = await Promise.all([
@@ -2007,9 +2008,9 @@
                     weatherResponse.json()
                 ]);
                 
-                // Console log the actual API responses
-                console.log('Marine API Response for', lat, lon, ':', marineData);
-                console.log('Weather API Response for', lat, lon, ':', weatherData);
+                // Console log the actual Open-Meteo API responses for debugging
+                console.log('Open-Meteo Marine API Response for', lat, lon, ':', marineData);
+                console.log('Open-Meteo Weather API Response for', lat, lon, ':', weatherData);
                 
                 // Extract wind data
                 const windSpeed = weatherData.current?.wind_speed_10m || 0; // m/s
