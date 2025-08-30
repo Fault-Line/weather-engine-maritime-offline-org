@@ -7,8 +7,8 @@ set "FRONTEND=%ROOT%frontend"
 set "VENV=%ROOT%venv"
 
 REM Start backend in one tab, frontend in another tab
-start wt.exe -w 0 nt -d "%BACKEND%" cmd /k "call %VENV%\Scripts\activate && python main.py" ^
-    ; nt -d "%FRONTEND%" cmd /k "call %VENV%\Scripts\activate && python -m http.server 3000"
+start wt.exe -w 0 nt -d "%BACKEND%" cmd /k "call \"%VENV%\Scripts\activate\" && python main.py" ^
+    ; nt -d "%FRONTEND%" cmd /k "call \"%VENV%\Scripts\activate\" && python -m http.server 3000"
 
 REM Open frontend site in default browser
 start "" "http://localhost:3000/demo.html"
