@@ -195,64 +195,47 @@ Calculates the bearing (direction) between two geographic coordinates using sphe
 const toRadians = (degrees) => degrees * (Math.PI / 180);
 const toDegrees = (radians) => radians * (180 / Math.PI);
 
-const dLon = toRadians(lon2 - lon1);
-const lat1Rad = toRadians(lat1);
-const lat2Rad = toRadians(lat2);
+1. **First Waypoint (Index 0)**:
+   - If multiple waypoints exist: Direction from first to second waypoint
+   - If single waypoint: Direction from source port to waypoint
 
-const y = Math.sin(dLon) * Math.cos(lat2Rad);
-const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+2. **Middle Waypoints**:
+   - Uses bearing from previous waypoint to current waypoint
+   - Provides consistent directional flow along the route
 
-let bearing = toDegrees(Math.atan2(y, x));
-bearing = (bearing + 360) % 360; // Normalize to 0-360 degrees
-```
+3. **Last Waypoint**:
+   - Direction from previous waypoint to destination port
+   - If no destination provided: Direction from second-to-last to last waypoint
 
-#### 2. calculateMovementDirection(waypoints, currentIndex, sourceCoords, destCoords)
-Determines ship direction at each waypoint using different logic based on position:
-
-**First Waypoint (Index 0):**
-- Uses direction from source port to next waypoint
-- Provides initial heading from departure port
-
-**Middle Waypoints:**
-- Averages bearing from previous to next waypoint
-- Handles circular degree calculations for smooth directional flow
-- Accounts for 0/360 degree boundary crossings
-
-**Last Waypoint:**
-- Uses direction from previous waypoint to destination port
-- Provides final approach heading to arrival port
-
-### Direction Display Integration
-
-#### Waypoint Weather Data Enhancement
-The `fetchWaypointWeather()` function now includes:
-
+#### Bearing Calculation Formula:
 ```javascript
-// Calculate movement direction at this waypoint
-const movementDirection = calculateMovementDirection(waypoints, i, sourceCoords, destCoords);
-const movementDirectionText = movementDirection ? getWindDirectionText(movementDirection) : 'N/A';
-
-// Added to waypoint data object:
-movementDirection: movementDirection,
-movementDirectionText: movementDirectionText,
+y = sin(Δlon) × cos(lat2)
+x = cos(lat1) × sin(lat2) - sin(lat1) × cos(lat2) × cos(Δlon)
+bearing = atan2(y, x)
 ```
 
-#### Visual Display Format
-Ship direction appears in waypoint weather cards as:
-```
-🚢 Ship Direction: NE (045°)
-```
+Where:
+- lat1, lon1: Starting point coordinates
+- lat2, lon2: Ending point coordinates
+- Δlon: Difference in longitude
+- Result normalized to 0-360 degrees
 
-### Compass Direction Conversion
-Uses 16-point compass system matching Open-Meteo format:
-- N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW
-- Each direction covers 22.5° range
-- Provides both numeric degrees and compass text
+#### Compass Direction Conversion:
+- Degrees divided into 16 compass points (N, NNE, NE, etc.)
+- Each point represents 22.5° sector
+- Index = round(degrees / 22.5) % 16
 
-### Direction Calculation Examples
+### Integration Points:
+- **Waypoint Weather Display**: Shows ship direction alongside environmental data
+- **Environmental Analysis**: Used for wind impact calculations relative to ship heading
+- **Route Optimization**: Enables heading-dependent performance calculations
 
-| Waypoint Type | From Coordinates | To Coordinates | Calculated Direction | Compass |
-|---------------|------------------|----------------|---------------------|---------|
+### Data Flow:
+1. Route generation creates waypoints
+2. calculateMovementDirection() computes heading at each waypoint
+3. Direction stored in waypointWeatherData array
+4. Displayed in weather cards with compass notation (e.g., "NE (45°)")
+5. Used in environmental impact calculations for optimization
 | First WP      | Source Port      | Next WP        | 045°               | NE      |
 | Middle WP     | Avg(Prev→Next)   | Smoothed       | 090°               | E       |
 | Last WP       | Previous WP      | Dest Port      | 135°               | SE      |
