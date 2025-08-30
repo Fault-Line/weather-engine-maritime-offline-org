@@ -1406,9 +1406,47 @@
                             More Details :-
                         </h3>
                     </div>
-                    <!-- Chart Placeholder -->
-                    <div class="h-80 bg-slate-900/50 rounded-lg border border-slate-700/50 flex items-center justify-center">
-                        
+                    <!-- Departure Time Picker -->
+                    <div class="p-4 bg-slate-800/40 rounded-lg mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-ocean-300">Departure Time</span>
+                            <i class="fas fa-calendar-alt text-ocean-300"></i>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <input type="date" id="departureDatePicker" class="w-full p-2 bg-slate-700/50 border border-slate-600 rounded text-white text-sm focus:border-ocean-400 focus:outline-none">
+                            </div>
+                            <div>
+                                <input type="time" id="departureTimePicker" class="w-full p-2 bg-slate-700/50 border border-slate-600 rounded text-white text-sm focus:border-ocean-400 focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ETA Labels -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- ETA -->
+                        <div class="p-4 bg-slate-800/40 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-ocean-300">ETA</span>
+                                <i class="fas fa-clock text-green-400"></i>
+                            </div>
+                            <div class="text-center">
+                                <div id="etaValue" class="text-green-400 font-bold text-lg">Dec 17, 08:30 UTC</div>
+                                <div class="text-xs text-green-300">Planned arrival</div>
+                            </div>
+                        </div>
+
+                        <!-- Actual ETA -->
+                        <div class="p-4 bg-slate-800/40 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium text-ocean-300">Actual ETA</span>
+                                <i class="fas fa-ship text-orange-400"></i>
+                            </div>
+                            <div class="text-center">
+                                <div id="actualEtaValue" class="text-orange-400 font-bold text-lg">Dec 17, 12:15 UTC</div>
+                                <div class="text-xs text-orange-300">Weather-adjusted</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -1522,6 +1560,7 @@
         let fuelChart;
         let activeMapLayers = [];
         let waypointWeatherData = []; // Store weather data for each waypoint
+        window.waypointWeatherData = waypointWeatherData; // Make globally accessible
         const API_BASE = 'http://localhost:8000';
         
         // OpenWeather API Configuration
@@ -1949,8 +1988,9 @@
                 const optimizedFuelConsumptionEl = document.getElementById('optimizedFuelConsumption');
                 const optimizedFuelCostEl = document.getElementById('optimizedFuelCost');
                 
-                // Try to use real environmental calculations
-                if (waypointWeatherData && waypointWeatherData.length > 0) {
+                // Try to use real environmental calculations from global weather data
+                if (window.waypointWeatherData && window.waypointWeatherData.length > 0) {
+                    const waypointWeatherData = window.waypointWeatherData;
                     const sourcePort = document.getElementById('sourcePort').value;
                     const destPort = document.getElementById('destinationPort').value;
                     const distance = calculateRouteDistance(sourcePort, destPort);
@@ -1988,7 +2028,10 @@
                         // Update environmental factors display
                         updateEnvironmentalFactorsDisplay(waypointWeatherData);
                         
-                        // Update savings display
+                        // Update ETA labels after optimized metrics are updated
+                        setTimeout(updateETALabels, 150);
+                        
+                        // Update savings display and Total Cost percentage
                         const savings = baseFuelCost - optimizedMetrics.optimizedCost;
                         let savingsText;
                         if (savings > 0) {
@@ -1999,9 +2042,10 @@
                             savingsText = `$0 no change`;
                         }
                         
-                        const savingsElements = document.querySelectorAll('.text-green-400');
-                        savingsElements.forEach(el => {
-                            if (el.textContent.includes('saved') || el.textContent.includes('additional cost') || el.textContent.includes('no change')) {
+                        // Update Total Cost section percentage
+                        const costPercentageElements = document.querySelectorAll('.text-xs');
+                        costPercentageElements.forEach(el => {
+                            if (el.textContent.includes('saved') || el.textContent.includes('additional cost')) {
                                 el.textContent = savingsText;
                                 // Update color based on result
                                 if (savings < 0) {
@@ -2022,15 +2066,15 @@
                             return total;
                         }, 0));
                         
-                        const timeChangePercent = ((baseTotalHours - optimizedMetrics.optimizedDurationHours) / baseTotalHours * 100);
+                        const timeChangePercent = ((optimizedMetrics.optimizedDurationHours - baseTotalHours) / baseTotalHours * 100);
                         const fuelChangePercent = ((baseFuelCost - optimizedMetrics.optimizedCost) / baseFuelCost * 100);
                         
                         // Format time change display
                         let timeDisplayText;
                         if (timeChangePercent > 0) {
-                            timeDisplayText = `${timeChangePercent.toFixed(0)}% improvement`;
+                            timeDisplayText = `${timeChangePercent.toFixed(0)}% setback`;
                         } else if (timeChangePercent < 0) {
-                            timeDisplayText = `${Math.abs(timeChangePercent).toFixed(0)}% setback`;
+                            timeDisplayText = `${Math.abs(timeChangePercent).toFixed(0)}% improvement`;
                         } else {
                             timeDisplayText = `0% change`;
                         }
@@ -2045,20 +2089,22 @@
                             fuelDisplayText = `0% change`;
                         }
                         
-                        // Update percentage displays
-                        const percentageElements = document.querySelectorAll('.text-green-400');
-                        percentageElements.forEach(el => {
+                        // Update percentage displays in route performance comparison section
+                        // Use more specific approach to find and update percentage elements
+                        const allTextElements = document.querySelectorAll('.text-xs');
+                        allTextElements.forEach(el => {
                             if (el.textContent.includes('improvement') || el.textContent.includes('setback')) {
                                 el.textContent = timeDisplayText;
-                                // Update color based on result
-                                if (timeChangePercent < 0) {
+                                // Update color based on result - setback is red, improvement is green
+                                if (timeChangePercent > 0) {
                                     el.className = el.className.replace('text-green-400', 'text-red-400');
                                 } else {
                                     el.className = el.className.replace('text-red-400', 'text-green-400');
                                 }
-                            } else if (el.textContent.includes('reduction') || el.textContent.includes('increase')) {
+                            }
+                            if (el.textContent.includes('reduction') || el.textContent.includes('increase')) {
                                 el.textContent = fuelDisplayText;
-                                // Update color based on result
+                                // Update color based on result - increase is red, reduction is green
                                 if (fuelChangePercent < 0) {
                                     el.className = el.className.replace('text-green-400', 'text-red-400');
                                 } else {
@@ -2121,6 +2167,9 @@
             } catch (error) {
                 console.error('Error updating analytics dashboard:', error);
             }
+            
+            // Update ETA labels after analytics dashboard changes
+            setTimeout(updateETALabels, 100);
         }
         
         // Update environmental factors display in Advanced Analytics Dashboard
@@ -2570,13 +2619,14 @@
         // Function to fetch weather data for waypoints
         async function fetchWaypointWeather(waypoints) {
             waypointWeatherData = []; // Clear previous data
+            window.waypointWeatherData = waypointWeatherData; // Sync global reference
             const waypointContainer = document.getElementById('waypointWeatherDataMain');
             
             // Get source and destination coordinates for better direction calculations
-            const sourcePort = document.getElementById('sourcePort').value;
-            const destPort = document.getElementById('destinationPort').value;
-            const sourceCoords = PORTS[sourcePort]?.coords;
-            const destCoords = PORTS[destPort]?.coords;
+            const sourcePortCode = document.getElementById('sourcePort').value;
+            const destPortCode = document.getElementById('destinationPort').value;
+            const sourceCoords = PORTS[sourcePortCode]?.coords;
+            const destCoords = PORTS[destPortCode]?.coords;
             
             // Show loading state
             waypointContainer.innerHTML = `
@@ -2631,38 +2681,17 @@
                     });
                 }
                 
+                // Update global reference after all data is collected
+                window.waypointWeatherData = waypointWeatherData;
+                
                 // Update display
                 updateWaypointWeatherDisplay();
                 
                 // Trigger analytics dashboard update with new environmental data
-                const sourcePort = document.getElementById('sourcePort').value;
-                const destPort = document.getElementById('destinationPort').value;
-                if (sourcePort && destPort && waypointWeatherData.length > 0) {
-                    // Get current route configuration values
-                    const distance = calculateRouteDistance(sourcePort, destPort);
-                    const currentSpeed = parseInt(document.getElementById('speedLimit').value);
-                    const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
-                    const fuelConsumptionL100nm = parseFloat(document.getElementById('fuelConsumption').value);
-                    
-                    // Calculate base metrics
-                    const totalHours = distance / currentSpeed;
-                    const totalFuelL = (distance / 100) * fuelConsumptionL100nm;
-                    const totalFuelMT = totalFuelL / 1000; // Convert liters to metric tons (approximate)
-                    const fuelCost = totalFuelMT * fuelPrice;
-                    
-                    // Format duration
-                    const days = Math.floor(totalHours / 24);
-                    const hours = Math.floor(totalHours % 24);
-                    const minutes = Math.floor((totalHours - Math.floor(totalHours)) * 60);
-                    
-                    let durationText = '';
-                    if (days > 0) durationText += `${days}d `;
-                    if (hours > 0 || days > 0) durationText += `${hours}h `;
-                    durationText += `${minutes}m`;
-                    
-                    // Update Advanced Analytics Dashboard with base route data
-                    updateAnalyticsDashboard();
-                }
+                updateAnalyticsDashboard();
+                
+                // Update ETA labels after weather data is processed
+                setTimeout(updateETALabels, 300);
                 
             } catch (error) {
                 console.error('Error fetching waypoint weather:', error);
@@ -3121,6 +3150,8 @@
             } finally {
                 button.innerHTML = '<i class="fas fa-download mr-2"></i>Load Forecast';
                 button.disabled = false;
+                // Update ETA labels after forecast data loads
+                setTimeout(updateETALabels, 200);
             }
         }
         // Enhanced optimization with parameters
@@ -3188,6 +3219,8 @@
                 optimizeText.textContent = 'Optimize Speed Profile';
                 button.innerHTML = '<i class="fas fa-rocket mr-2"></i><span id="optimizeText">Optimize Speed Profile</span>';
                 button.disabled = false;
+                // Update ETA labels after optimization completes
+                setTimeout(updateETALabels, 200);
             }
         }
         // Alert Popup System
@@ -3205,6 +3238,90 @@
                 container.className = 'alert-popup-container top-right';
                 positionText.textContent = 'Top Right';
             }
+        }
+        // Initialize departure time picker
+        function initDepartureTimePicker() {
+            const dateInput = document.getElementById('departureDatePicker');
+            const timeInput = document.getElementById('departureTimePicker');
+            
+            if (dateInput && timeInput) {
+                // Set current date and time as default
+                const now = new Date();
+                const today = now.toISOString().split('T')[0];
+                const currentTime = now.toTimeString().slice(0, 5);
+                
+                dateInput.value = today;
+                timeInput.value = currentTime;
+                
+                // Add event listeners for ETA updates
+                dateInput.addEventListener('change', updateETALabels);
+                timeInput.addEventListener('change', updateETALabels);
+            }
+        }
+
+        // Update ETA labels based on departure time and weather conditions
+        function updateETALabels() {
+            const dateInput = document.getElementById('departureDatePicker');
+            const timeInput = document.getElementById('departureTimePicker');
+            const etaValue = document.getElementById('etaValue');
+            const actualEtaValue = document.getElementById('actualEtaValue');
+            
+            if (dateInput && timeInput && etaValue && actualEtaValue) {
+                // Get departure date/time
+                const departureDateTime = new Date(`${dateInput.value}T${timeInput.value}`);
+                
+                // Get route performance data from the comparison section
+                const baseRouteDuration = document.getElementById('baseRouteDuration');
+                const optimizedRouteDuration = document.getElementById('optimizedRouteDuration');
+                
+                let plannedHours = 48.5; // Default
+                let actualHours = 52.25; // Default with weather impact
+                
+                // Parse actual duration values from route performance comparison
+                // Base Route = Planned ETA, Actual Route = Actual ETA (weather-adjusted)
+                if (baseRouteDuration && optimizedRouteDuration) {
+                    const baseText = baseRouteDuration.textContent;
+                    const actualText = optimizedRouteDuration.textContent;
+                    
+                    // Extract days, hours, and minutes from "XdXh XXm" format
+                    const baseMatch = baseText.match(/(?:(\d+)d\s*)?(?:(\d+)h\s*)?(?:(\d+)m)?/);
+                    const actualMatch = actualText.match(/(?:(\d+)d\s*)?(?:(\d+)h\s*)?(?:(\d+)m)?/);
+                    
+                    if (baseMatch) {
+                        const days = parseInt(baseMatch[1]) || 0;
+                        const hours = parseInt(baseMatch[2]) || 0;
+                        const minutes = parseInt(baseMatch[3]) || 0;
+                        plannedHours = (days * 24) + hours + (minutes / 60);
+                    }
+                    if (actualMatch) {
+                        const days = parseInt(actualMatch[1]) || 0;
+                        const hours = parseInt(actualMatch[2]) || 0;
+                        const minutes = parseInt(actualMatch[3]) || 0;
+                        actualHours = (days * 24) + hours + (minutes / 60);
+                    }
+                }
+                
+                // Calculate ETAs based on departure time and route performance
+                const plannedArrival = new Date(departureDateTime.getTime() + (plannedHours * 60 * 60 * 1000));
+                const actualArrival = new Date(departureDateTime.getTime() + (actualHours * 60 * 60 * 1000));
+                
+                // Format and display ETAs
+                etaValue.textContent = formatETATime(plannedArrival);
+                actualEtaValue.textContent = formatETATime(actualArrival);
+            }
+        }
+
+        // Format ETA time for display
+        function formatETATime(date) {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            }) + ', ' + date.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'UTC'
+            }) + ' UTC';
         }
         // Alert Sound System
         function playAlertSound() {
@@ -3944,6 +4061,8 @@
             try {
                 checkAPI();
                 animateTimeline();
+                initDepartureTimePicker();
+                updateETALabels();
             } catch (error) {
                 console.error('API/Timeline initialization failed:', error);
             }            
@@ -3951,6 +4070,7 @@
             document.getElementById('sourcePort').addEventListener('change', () => {
                 updateRouteDisplay();
                 updateAnalyticsDashboard(); // Sync analytics with route changes
+                setTimeout(updateETALabels, 100); // Update ETA when route changes
                 if (validateRouteSelection()) {
                     setTimeout(drawRoute, 500); // Give map time to be ready
                 }
@@ -3958,12 +4078,14 @@
             document.getElementById('destinationPort').addEventListener('change', () => {
                 updateRouteDisplay();
                 updateAnalyticsDashboard(); // Sync analytics with route changes
+                setTimeout(updateETALabels, 100); // Update ETA when route changes
                 if (validateRouteSelection()) {
                     setTimeout(drawRoute, 500);
                 }
             });            
             document.getElementById('updateRoute').addEventListener('click', () => {
                 updateRouteDisplay();
+                setTimeout(updateETALabels, 100); // Update ETA when route updates
                 if (validateRouteSelection()) {
                     setTimeout(drawRoute, 500);
                 }
@@ -4031,6 +4153,7 @@
                 updateSpeedSlider();
                 updateRouteDisplay(); // Update duration when speed changes
                 updateAnalyticsDashboard(); // Sync analytics with speed changes
+                setTimeout(updateETALabels, 100); // Update ETA when speed changes
             });
             
             // Fuel price listener - sync with route calculations
@@ -4040,6 +4163,7 @@
                     e.target.style.borderColor = 'rgba(34, 197, 94, 0.5)';
                     updateRouteDisplay(); // Update fuel cost when price changes
                     updateAnalyticsDashboard(); // Sync analytics with fuel price changes
+                    setTimeout(updateETALabels, 100); // Update ETA when fuel price changes
                 } else {
                     e.target.style.borderColor = 'rgba(239, 68, 68, 0.5)';
                 }
@@ -4052,6 +4176,7 @@
                     e.target.style.borderColor = 'rgba(34, 197, 94, 0.5)';
                     updateRouteDisplay(); // Update fuel cost when consumption changes
                     updateAnalyticsDashboard(); // Sync analytics with fuel consumption changes
+                    setTimeout(updateETALabels, 100); // Update ETA when fuel consumption changes
                 } else {
                     e.target.style.borderColor = 'rgba(239, 68, 68, 0.5)';
                 }
