@@ -1776,8 +1776,8 @@
             if (source && destination) {
                 document.getElementById('currentRoute').textContent = 
                     `${source.name.split('(')[0].trim()} → ${destination.name.split('(')[0].trim()}`;                
-                // Calculate distance (rough estimation)
-                const distance = calculateDistance(source.coords, destination.coords);
+                // Calculate distance using actual route waypoints
+                const distance = calculateRouteDistance(sourcePort, destPort);
                 document.getElementById('routeDistance').textContent = distance.toFixed(0) + ' nm';                
                 // Calculate duration (based on 18 kts average)
                 const duration = distance / 18;
@@ -1801,6 +1801,32 @@
                     Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
+        }
+
+        // Calculate total route distance using waypoints
+        function calculateRouteDistance(sourcePort, destPort) {
+            const routeKey = `${sourcePort}_${destPort}`;
+            
+            // Check if predefined route exists
+            if (PREDEFINED_ROUTES[routeKey]) {
+                const waypoints = PREDEFINED_ROUTES[routeKey].waypoints;
+                let totalDistance = 0;
+                
+                // Calculate distance between consecutive waypoints
+                for (let i = 0; i < waypoints.length - 1; i++) {
+                    totalDistance += calculateDistance(waypoints[i], waypoints[i + 1]);
+                }
+                
+                return totalDistance;
+            } else {
+                // Fallback to straight-line distance for non-predefined routes
+                const source = PORTS[sourcePort];
+                const destination = PORTS[destPort];
+                if (source && destination) {
+                    return calculateDistance(source.coords, destination.coords);
+                }
+                return 0;
+            }
         }
         // Enhanced route drawing
         function drawRoute() {
