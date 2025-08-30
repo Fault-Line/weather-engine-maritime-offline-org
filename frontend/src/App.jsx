@@ -24,6 +24,92 @@ const App = () => {
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [useMock, setUseMock] = useState(false);
 
+    // Helpers for geodesy and simple wave-speed/speed-adjustment model
+    const haversineNm = (lat1, lon1, lat2, lon2) => {
+        const toRad = (d) => d * Math.PI / 180;
+        const R = 6371e3; // meters
+        const phi1 = toRad(lat1);
+        const phi2 = toRad(lat2);
+        const dphi = toRad(lat2 - lat1);
+        const dlambda = toRad(lon2 - lon1);
+        const a = Math.sin(dphi/2) * Math.sin(dphi/2) + Math.cos(phi1)*Math.cos(phi2)*Math.sin(dlambda/2)*Math.sin(dlambda/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const meters = R * c;
+        return meters / 1852;
+    };
+
+    const bearingDeg = (lat1, lon1, lat2, lon2) => {
+        const toRad = (d) => d * Math.PI / 180;
+        const toDeg = (r) => r * 180 / Math.PI;
+        const phi1 = toRad(lat1);
+        const phi2 = toRad(lat2);
+        const dlambda = toRad(lon2 - lon1);
+        const y = Math.sin(dlambda) * Math.cos(phi2);
+        const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dlambda);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    };
+
+    // Compute per-segment estimated/actual speeds and durations
+    const computeSegmentSpeeds = () => {
+        if (!forecastData || forecastData.length === 0) return { rows: [], totalEstDays: 0, totalActDays: 0 };
+
+        const rows = [];
+        const defaultEstKn = 12.0;
+        let totalEstHours = 0;
+        let totalActHours = 0;
+
+        for (let i = 0; i < forecastData.length; i++) {
+            const seg = forecastData[i];
+            const next = forecastData[i+1];
+            const dist_nm = next ? haversineNm(seg.lat, seg.lon, next.lat, next.lon) : 0;
+
+            const sp = speedProfile ? speedProfile.find(s => s.segment_id === seg.segment_id) : null;
+            const est_kn = sp ? (sp.speed_kn || defaultEstKn) : defaultEstKn;
+
+            const f = seg.forecast?.times[selectedTimeIndex] || {};
+            const Hs = f.waves?.Hs_m || 0;
+            const Tp = f.waves?.Tp_s || null;
+            const wind_deg = f.wind_deg ?? null;
+
+            const segBearing = next ? bearingDeg(seg.lat, seg.lon, next.lat, next.lon) : 0;
+            const waveDir = wind_deg !== null ? wind_deg : segBearing;
+            const rel = (((waveDir - segBearing + 540) % 360) - 180) * Math.PI/180;
+
+            let delta = 0;
+            if (Hs) {
+                delta = (Hs / 10) * Math.cos(rel);
+                delta = Math.max(-0.4, Math.min(0.4, delta));
+            }
+
+            const act_kn = Math.max(1, est_kn * (1 + delta));
+
+            const estHours = dist_nm / Math.max(0.1, est_kn);
+            const actHours = dist_nm / Math.max(0.1, act_kn);
+
+            totalEstHours += estHours;
+            totalActHours += actHours;
+
+            // wave speed (m/s) if Tp available
+            const waveSpeed_ms = Tp ? (9.81 * Tp / (2 * Math.PI)) : null;
+
+            rows.push({
+                segment_id: seg.segment_id,
+                dist_nm: +dist_nm.toFixed(2),
+                est_kn: +est_kn.toFixed(2),
+                act_kn: +act_kn.toFixed(2),
+                est_hours: +estHours.toFixed(2),
+                act_hours: +actHours.toFixed(2),
+                Hs: +Hs.toFixed(2),
+                Tp: Tp ? +Tp.toFixed(2) : null,
+                waveSpeed_ms: waveSpeed_ms ? +waveSpeed_ms.toFixed(2) : null
+            });
+        }
+
+        return { rows, totalEstDays: +(totalEstHours/24).toFixed(2), totalActDays: +(totalActHours/24).toFixed(2) };
+    };
+
+    const segmentSpeeds = computeSegmentSpeeds();
+
     useEffect(() => {
         const loadForecast = async () => {
             try {
@@ -257,6 +343,45 @@ const App = () => {
                                 ))}
                             </div>
                         )}
+
+                        {/* Segment Speeds & Durations */}
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+                                <Waves className="h-5 w-5 mr-2 text-blue-600" />
+                                Segment Speeds
+                            </h3>
+                            <div className="text-xs text-gray-700 mb-3">
+                                Estimated and actual (wave-adjusted) speeds per waypoint. Totals below.
+                            </div>
+                            <div className="max-h-48 overflow-auto text-xs">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="text-[11px] text-gray-500">
+                                            <th className="pb-2">Seg</th>
+                                            <th className="pb-2">Dist (nm)</th>
+                                            <th className="pb-2">Hs (m)</th>
+                                            <th className="pb-2">Est (kn)</th>
+                                            <th className="pb-2">Act (kn)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {segmentSpeeds.rows.map(r => (
+                                            <tr key={r.segment_id} className="border-t border-gray-100">
+                                                <td className="py-1 text-[12px]">{r.segment_id}</td>
+                                                <td className="py-1">{r.dist_nm}</td>
+                                                <td className="py-1">{r.Hs}</td>
+                                                <td className="py-1">{r.est_kn}</td>
+                                                <td className="py-1">{r.act_kn}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="mt-3 text-sm">
+                                <div>Estimated route duration: <strong>{segmentSpeeds.totalEstDays} days</strong></div>
+                                <div>Actual (wave-adjusted): <strong>{segmentSpeeds.totalActDays} days</strong></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

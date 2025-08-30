@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Weather Engine - Static Demo</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #0f172a; color: #e6eef8; }
+    .container { display: flex; gap: 16px; padding: 16px; }
+    .map-box { background: #07203a; padding: 12px; border-radius: 8px; flex: 1; }
+    canvas { width: 900px; height: 500px; background: #052033; border-radius:6px; display:block; }
+    .sidebar { width: 360px; }
+    .card { background: #07283f; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px; font-size: 13px; color: #dbeafe; }
+    thead th { color: #93c5fd; font-size: 12px }
+    .overlay { position: absolute; background: white; color: black; padding: 8px; border-radius:6px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-size: 13px; }
+    .topbar { padding: 12px; display:flex; justify-content:space-between; align-items:center; }
+    .hint { color: #93c5fd; font-size: 13px }
+  </style>
+</head>
+<body>
+  <div class="topbar"><div style="color:#a5f3fc;font-weight:700">Weather Engine — Static Demo</div><div class="hint">Click a waypoint on the map to view speeds</div></div>
+  <div class="container">
+    <div class="map-box" style="position:relative;">
+      <canvas id="mapcanvas" width="900" height="500"></canvas>
+      <div id="overlay-root"></div>
+      <div id="route-duration" style="position:absolute; right:12px; bottom:12px; background:#07283f; padding:8px; border-radius:6px; color:#c7f9ff; font-size:13px;">Durations</div>
+    </div>
+    <div class="sidebar">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Segment Speeds</div>
+        <div id="segments-table" style="max-height:340px; overflow:auto"></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Notes</div>
+        <div style="font-size:13px; color:#bfefff">This static demo uses a heuristic model: estimated speed = profile or 12 kn; actual speed adjusted by wave height and relative direction. Wave speed uses c = g*T/(2π) when Tp is present.</div>
+      </div>
+    </div>
+  </div>
+  <script src="./demo_static.js"></script>
+</body>
+</html>

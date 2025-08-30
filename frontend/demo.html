@@ -1448,7 +1448,8 @@
         let weatherTrendChart;
         let fuelChart;
         let activeMapLayers = [];
-        let waypointWeatherData = []; // Store weather data for each waypoint
+    let waypointWeatherData = []; // Store weather data for each waypoint
+    let waypointMarkers = []; // store Leaflet marker objects for updating popups
         const API_BASE = 'http://localhost:8000';
         
         // Windy API Configuration
@@ -1919,7 +1920,7 @@
                         iconSize: [16, 16],
                         className: 'waypoint-marker'
                     });                    
-                    L.marker(point, {icon: waypointIcon}).addTo(map)
+                    const marker = L.marker(point, {icon: waypointIcon}).addTo(map)
                         .bindPopup(`
                             <div class="text-center">
                                 <strong class="text-cyan-600">Waypoint ${index + 1}</strong>
@@ -1927,6 +1928,8 @@
                                 <br><small class="text-cyan-600">Navigation checkpoint</small>
                             </div>
                         `);
+                    // save marker for later popup updates when weather is fetched
+                    waypointMarkers.push(marker);
                 });
                 // Fit map to show full route
                 map.fitBounds(fullRoute, { padding: [20, 20] });                
@@ -1973,18 +1976,36 @@
                     // Fetch real weather data from Marine API
                     const weatherData = await fetchWindyWeatherAPI(waypoint[0], waypoint[1]);
                     
-                    // Check if API returned an error
+                    // Check if API returned an error — don't abort, use fallback values so UI still shows speeds
                     if (weatherData.error) {
-                        // Stop processing and show error in the display
-                        waypointContainer.innerHTML = `
-                            <div class="text-center text-red-400 py-6 px-4 bg-red-900/20 rounded-lg border border-red-600/30">
-                                <i class="fas fa-exclamation-triangle text-2xl mb-3"></i>
-                                <div class="font-semibold mb-2">Weather Data Unavailable</div>
-                                <div class="text-sm text-red-300">${weatherData.errorMessage}</div>
-                                <div class="text-xs text-red-400 mt-2">Check your internet connection and try again</div>
-                            </div>
-                        `;
-                        return;
+                        console.warn('Weather API error for waypoint', waypoint, weatherData.errorMessage);
+                        // append a subtle warning banner but continue processing other waypoints
+                        const warnEl = document.createElement('div');
+                        warnEl.className = 'text-xs text-yellow-300 mb-2';
+                        warnEl.textContent = 'Live weather fetch failed for some waypoints — showing fallback estimates.';
+                        // Only append once
+                        if (!document.getElementById('waypoint-weather-warning')) {
+                            warnEl.id = 'waypoint-weather-warning';
+                            waypointContainer.prepend(warnEl);
+                        }
+
+                        // Replace weatherData with fallback defaults so calculations still work
+                        Object.assign(weatherData, {
+                            windSpeed: 6.0,
+                            windDirection: 180,
+                            waveHeight: 1.2,
+                            waveDirection: 180,
+                            wavePeriod: 6.0,
+                            swellWaveHeight: 0,
+                            swellWaveDirection: 0,
+                            swellWavePeriod: 0,
+                            windWaveHeight: 0,
+                            windWaveDirection: 0,
+                            windWavePeriod: 0,
+                            error: false,
+                            errorMessage: 'Using fallback estimates'
+                        });
+                        // continue processing with fallback values
                     }
                     
                     waypointWeatherData.push({
@@ -2003,10 +2024,128 @@
                         windWavePeriod: weatherData.windWavePeriod,
                         timestamp: new Date().toISOString()
                     });
+
+                    // Compute simple speed estimates for display
+                    const estSpeedKn = 12.0; // default
+                    const Hs = weatherData.waveHeight || 0;
+                    const Tp = weatherData.wavePeriod || null;
+                    const waveDir = weatherData.waveDirection ?? weatherData.windDirection ?? 0;
+                    // compute bearing to next waypoint if exists
+                    let segBearing = 0;
+                    if (i < waypoints.length - 1) {
+                        const a = waypoint;
+                        const b = waypoints[i+1];
+                        const toRad = (d) => d * Math.PI / 180;
+                        const toDeg = (r) => r * 180 / Math.PI;
+                        const phi1 = toRad(a[0]), phi2 = toRad(b[0]);
+                        const dlambda = toRad(b[1] - a[1]);
+                        const y = Math.sin(dlambda) * Math.cos(phi2);
+                        const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dlambda);
+                        segBearing = (toDeg(Math.atan2(y, x)) + 360) % 360;
+                    }
+                    const rel = (((waveDir - segBearing + 540) % 360) - 180) * Math.PI/180;
+                    let delta = 0;
+                    if (Hs) { delta = (Hs / 10) * Math.cos(rel); delta = Math.max(-0.4, Math.min(0.4, delta)); }
+                    const actSpeedKn = Math.max(1, estSpeedKn * (1 + delta));
+                    const waveSpeedMs = Tp ? (9.81 * Tp / (2 * Math.PI)) : null;
+
+                    // Append a compact display into waypointWeatherData container so users can see speeds
+                    const fragment = document.createElement('div');
+                    fragment.className = 'mb-2 p-2 bg-slate-800/40 rounded text-xs';
+                    fragment.innerHTML = `
+                        <div class="font-medium text-cyan-200">Waypoint ${i+1}</div>
+                        <div>Hs: <strong>${(Hs||0).toFixed(2)} m</strong> &nbsp; Tp: <strong>${Tp?Tp.toFixed(1):'—'} s</strong></div>
+                        <div>Wave speed: <strong>${waveSpeedMs?waveSpeedMs.toFixed(2)+' m/s':'—'}</strong></div>
+                        <div>Estimated speed: <strong>${estSpeedKn.toFixed(2)} kn</strong> &nbsp; Actual speed: <strong>${actSpeedKn.toFixed(2)} kn</strong></div>
+                    `;
+                    waypointContainer.appendChild(fragment);
+
+                    // Update corresponding marker's popup (if marker exists)
+                    if (waypointMarkers[i]) {
+                        const popupHtml = `
+                            <div class="text-center">
+                                <strong class="text-cyan-600">Waypoint ${i + 1}</strong>
+                                <br><small class="text-gray-500">${waypoint[0].toFixed(3)}°N, ${waypoint[1].toFixed(3)}°E</small>
+                                <br><small class="text-cyan-600">Navigation checkpoint</small>
+                                <hr style="margin:6px 0; border-color:#0ea5e9" />
+                                <div style="font-size:12px; color:#0ea5e9">Hs: <strong>${(Hs||0).toFixed(2)} m</strong> &nbsp; Tp: <strong>${Tp?Tp.toFixed(1):'—'} s</strong></div>
+                                <div style="font-size:12px; color:#93c5fd">Wave speed: <strong>${waveSpeedMs?waveSpeedMs.toFixed(2)+' m/s':'—'}</strong></div>
+                                <div style="font-size:12px; margin-top:4px">Estimated: <strong>${estSpeedKn.toFixed(2)} kn</strong> &nbsp; Actual: <strong>${actSpeedKn.toFixed(2)} kn</strong></div>
+                            </div>
+                        `;
+                        waypointMarkers[i].unbindPopup();
+                        waypointMarkers[i].bindPopup(popupHtml);
+                    }
+                    // Save computed speeds back into waypointWeatherData so we can compute route totals
+                    try {
+                        const lastIdx = waypointWeatherData.length - 1;
+                        if (lastIdx >= 0 && waypointWeatherData[lastIdx]) {
+                            waypointWeatherData[lastIdx].estSpeedKn = estSpeedKn;
+                            waypointWeatherData[lastIdx].actSpeedKn = actSpeedKn;
+                            waypointWeatherData[lastIdx].waveSpeedMs = waveSpeedMs;
+                        }
+                    } catch (e) {
+                        // non-fatal
+                    }
                 }
                 
                 // Update display
                 updateWaypointWeatherDisplay();
+                // Compute and display estimated vs actual route duration
+                try {
+                    const sourcePort = document.getElementById('sourcePort').value;
+                    const destPort = document.getElementById('destinationPort').value;
+                    const source = PORTS[sourcePort];
+                    const destination = PORTS[destPort];
+                    const currentSpeed = parseFloat(document.getElementById('speedLimit').value) || 12.0;
+                    // Build full points array: source -> waypoints -> destination
+                    const fullPoints = [source.coords, ...waypoints, destination.coords];
+                    let totalActualHours = 0;
+                    let totalDistance = 0;
+                    for (let j = 0; j < fullPoints.length - 1; j++) {
+                        const a = fullPoints[j];
+                        const b = fullPoints[j + 1];
+                        const segDist = calculateDistance(a, b);
+                        totalDistance += segDist;
+                        // choose speed to use for this segment
+                        let segSpeedKn = currentSpeed; // fallback
+                        if (j === 0 && waypointWeatherData[0] && waypointWeatherData[0].actSpeedKn) {
+                            segSpeedKn = waypointWeatherData[0].actSpeedKn;
+                        } else if (j > 0 && waypointWeatherData[j - 1] && waypointWeatherData[j - 1].actSpeedKn) {
+                            segSpeedKn = waypointWeatherData[j - 1].actSpeedKn;
+                        }
+                        if (!segSpeedKn || segSpeedKn < 1) segSpeedKn = 1;
+                        totalActualHours += segDist / segSpeedKn;
+                    }
+                    // Estimated hours using selected speed (currentSpeed)
+                    const estTotalHours = totalDistance / currentSpeed;
+                    function hoursToDhms(h) {
+                        const days = Math.floor(h / 24);
+                        const hours = Math.floor(h % 24);
+                        const minutes = Math.floor((h - Math.floor(h)) * 60);
+                        let s = '';
+                        if (days > 0) s += `${days}d `;
+                        s += `${hours}h ${minutes}m`;
+                        return s;
+                    }
+                    const estText = hoursToDhms(estTotalHours);
+                    const actualText = hoursToDhms(totalActualHours);
+                    // Update the existing estimated duration element (keep formatting similar to existing)
+                    const routeDurationEl = document.getElementById('routeDuration');
+                    if (routeDurationEl) routeDurationEl.textContent = estText;
+                    // Create or update Actual Duration element
+                    let actualEl = document.getElementById('routeActualDuration');
+                    if (!actualEl) {
+                        actualEl = document.createElement('div');
+                        actualEl.id = 'routeActualDuration';
+                        actualEl.className = 'text-sm font-bold text-red-400';
+                        actualEl.style.marginTop = '4px';
+                        routeDurationEl.parentNode.appendChild(actualEl);
+                    }
+                    actualEl.textContent = `Actual: ${actualText}`;
+                } catch (e) {
+                    console.warn('Failed to compute route durations:', e);
+                }
                 
             } catch (error) {
                 console.error('Error fetching waypoint weather:', error);

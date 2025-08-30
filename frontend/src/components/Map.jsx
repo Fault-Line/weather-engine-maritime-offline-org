@@ -1,7 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const Map = ({ forecastData, selectedTimeIndex, speedProfile }) => {
   const mapRef = useRef(null);
+  const coordsRef = useRef([]);
+  const [selectedSegment, setSelectedSegment] = useState(null);
+  const [clickPos, setClickPos] = useState(null);
 
   useEffect(() => {
     // Simple fallback map implementation using Canvas or basic rendering
@@ -39,6 +42,9 @@ const Map = ({ forecastData, selectedTimeIndex, speedProfile }) => {
       return { x, y };
     };
     
+    // Clear coordsRef
+    coordsRef.current = [];
+
     // Draw route line
     ctx.strokeStyle = '#3B82F6';
     ctx.lineWidth = 3;
@@ -46,6 +52,8 @@ const Map = ({ forecastData, selectedTimeIndex, speedProfile }) => {
     
     forecastData.forEach((point, index) => {
       const { x, y } = toCanvasCoords(point.lat, point.lon);
+      // store canvas coordinates for click hit-testing
+      coordsRef.current[index] = { x, y, segment: point };
       if (index === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -102,12 +110,151 @@ const Map = ({ forecastData, selectedTimeIndex, speedProfile }) => {
     
   }, [forecastData, selectedTimeIndex, speedProfile]);
 
+  // Utility: haversine distance in nautical miles
+  const haversineNm = (lat1, lon1, lat2, lon2) => {
+    const toRad = (d) => d * Math.PI / 180;
+    const R = 6371e3; // meters
+    const phi1 = toRad(lat1);
+    const phi2 = toRad(lat2);
+    const dphi = toRad(lat2 - lat1);
+    const dlambda = toRad(lon2 - lon1);
+    const a = Math.sin(dphi/2) * Math.sin(dphi/2) + Math.cos(phi1)*Math.cos(phi2)*Math.sin(dlambda/2)*Math.sin(dlambda/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const meters = R * c;
+    const nm = meters / 1852;
+    return nm;
+  };
+
+  // Bearing from point A to B (degrees)
+  const bearingDeg = (lat1, lon1, lat2, lon2) => {
+    const toRad = (d) => d * Math.PI / 180;
+    const toDeg = (r) => r * 180 / Math.PI;
+    const phi1 = toRad(lat1);
+    const phi2 = toRad(lat2);
+    const dlambda = toRad(lon2 - lon1);
+    const y = Math.sin(dlambda) * Math.cos(phi2);
+    const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dlambda);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  };
+
+  // Compute route durations (estimated from speedProfile and actual adjusted by waves)
+  const computeRouteDurations = () => {
+    if (!forecastData || forecastData.length === 0) return { estimated_days: 0, actual_days: 0 };
+
+    const default_est_kn = 12.0;
+    let totalEstHours = 0;
+    let totalActHours = 0;
+
+    for (let i = 0; i < forecastData.length - 1; i++) {
+      const a = forecastData[i];
+      const b = forecastData[i+1];
+      const dist_nm = haversineNm(a.lat, a.lon, b.lat, b.lon) || 0.1; // small fallback
+
+      // estimated speed (kn)
+      const sp = speedProfile ? speedProfile.find(s => s.segment_id === a.segment_id) : null;
+      const est_kn = sp ? (sp.speed_kn || default_est_kn) : default_est_kn;
+
+      // wave params
+      const forecast = a.forecast?.times[selectedTimeIndex] || {};
+      const Hs = forecast.waves?.Hs_m || 0;
+      const Tp = forecast.waves?.Tp_s || null;
+      const wind_deg = forecast.wind_deg || null;
+
+      // compute segment bearing
+      const segBearing = bearingDeg(a.lat, a.lon, b.lat, b.lon);
+
+      // approximate wave direction using wind_deg if present
+      const waveDir = wind_deg !== null ? wind_deg : segBearing;
+      const rel = (((waveDir - segBearing + 540) % 360) - 180) * Math.PI/180; // -pi..pi
+
+      // modifier based on Hs and relative angle
+      let delta = 0;
+      if (Hs) {
+        delta = (Hs / 10) * Math.cos(rel); // small influence: up to +/- Hs/10
+        // clamp
+        delta = Math.max(-0.3, Math.min(0.3, delta));
+      }
+
+      const act_kn = Math.max(1, est_kn * (1 + delta));
+
+      totalEstHours += dist_nm / Math.max(0.1, est_kn);
+      totalActHours += dist_nm / Math.max(0.1, act_kn);
+    }
+
+    return {
+      estimated_days: +(totalEstHours/24).toFixed(2),
+      actual_days: +(totalActHours/24).toFixed(2)
+    };
+  };
+
+  const routeDurations = computeRouteDurations();
+
   const handleCanvasClick = (event) => {
     // Handle click events if needed
     const rect = mapRef.current.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    console.log('Clicked at:', x, y);
+    setClickPos({ x, y });
+
+    // hit-test nearest point within radius
+    let nearest = null;
+    let minDist = 9999;
+    coordsRef.current.forEach((c, idx) => {
+      if (!c) return;
+      const dx = c.x - x;
+      const dy = c.y - y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < minDist) {
+        minDist = d;
+        nearest = { c, idx };
+      }
+    });
+
+    if (nearest && minDist <= 12) {
+      setSelectedSegment(nearest.c.segment);
+    } else {
+      setSelectedSegment(null);
+    }
+  };
+
+  // Helper to compute per-segment info for overlay
+  const segmentInfo = (segment) => {
+    if (!segment) return null;
+    const idx = forecastData.findIndex(s => s.segment_id === segment.segment_id);
+    const next = forecastData[idx+1];
+    const dist_nm = next ? haversineNm(segment.lat, segment.lon, next.lat, next.lon) : 0;
+    const sp = speedProfile ? speedProfile.find(s => s.segment_id === segment.segment_id) : null;
+    const est_kn = sp ? (sp.speed_kn || 12) : 12;
+    const forecast = segment.forecast?.times[selectedTimeIndex] || {};
+    const Hs = forecast.waves?.Hs_m || 0;
+    const Tp = forecast.waves?.Tp_s || null;
+    const wind_deg = forecast.wind_deg || null;
+
+    // wave speed (m/s) using deep-water approximation c = g*T/(2*pi)
+    const waveSpeed_ms = Tp ? (9.81 * Tp / (2 * Math.PI)) : null;
+    const waveSpeed_kn = waveSpeed_ms ? waveSpeed_ms * 1.94384 : null;
+
+    // segment bearing
+    let segBearing = null;
+    if (next) segBearing = bearingDeg(segment.lat, segment.lon, next.lat, next.lon);
+    const waveDir = wind_deg !== null ? wind_deg : segBearing || 0;
+    const rel = segBearing !== null ? (((waveDir - segBearing + 540) % 360) - 180) * Math.PI/180 : 0;
+    let delta = 0;
+    if (Hs) {
+      delta = (Hs / 10) * Math.cos(rel);
+      delta = Math.max(-0.3, Math.min(0.3, delta));
+    }
+    const act_kn = Math.max(1, est_kn * (1 + delta));
+
+    return {
+      est_kn: +est_kn.toFixed(2),
+      act_kn: +act_kn.toFixed(2),
+      Hs: +Hs.toFixed(2),
+      Tp: Tp ? +Tp.toFixed(2) : null,
+      waveSpeed_ms: waveSpeed_ms ? +waveSpeed_ms.toFixed(2) : null,
+      waveSpeed_kn: waveSpeed_kn ? +waveSpeed_kn.toFixed(2) : null,
+      dist_nm: +dist_nm.toFixed(2)
+    };
   };
 
   return (
@@ -165,6 +312,37 @@ const Map = ({ forecastData, selectedTimeIndex, speedProfile }) => {
             );
           })}
         </div>
+      )}
+
+      {/* Route Durations */}
+      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg text-sm">
+        <div className="font-medium">Route Duration</div>
+        <div className="text-xs text-gray-700 mt-1">Estimated: {routeDurations.estimated_days} days</div>
+        <div className="text-xs text-gray-700">Actual (wave-adjusted): {routeDurations.actual_days} days</div>
+      </div>
+
+      {/* Clicked waypoint overlay */}
+      {selectedSegment && clickPos && (
+        (() => {
+          const info = segmentInfo(selectedSegment);
+          return (
+            <div style={{ left: clickPos.x + 16, top: clickPos.y + 16 }} className="absolute bg-white p-3 rounded-lg shadow-lg text-xs max-w-xs">
+              <div className="font-medium mb-1">Segment {selectedSegment.segment_id}</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>Hs: <strong>{info.Hs} m</strong></div>
+                <div>Tp: <strong>{info.Tp ?? '—'} s</strong></div>
+                <div>Wave speed: <strong>{info.waveSpeed_ms ? `${info.waveSpeed_ms} m/s` : '—'}</strong></div>
+                <div>({info.waveSpeed_kn ? `${info.waveSpeed_kn} kn` : '—'})</div>
+                <div>Estimated speed: <strong>{info.est_kn} kn</strong></div>
+                <div>Actual speed: <strong>{info.act_kn} kn</strong></div>
+                <div>Segment dist: <strong>{info.dist_nm} nm</strong></div>
+              </div>
+              <div className="mt-2 text-right">
+                <button onClick={() => setSelectedSegment(null)} className="text-blue-600 text-xs">Close</button>
+              </div>
+            </div>
+          );
+        })()
       )}
     </div>
   );
