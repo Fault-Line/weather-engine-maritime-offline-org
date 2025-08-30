@@ -1279,15 +1279,15 @@
                             <div class="p-4 bg-slate-800/40 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm font-medium text-ocean-300">Travel Time</span>
-                                    <span class="text-xs text-green-400">-18% improvement</span>
+                                    <span class="text-xs text-green-400">-17% improvement</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="text-center">
-                                        <div class="text-red-400 font-bold text-lg">72h 30m</div>
+                                        <div id="baseRouteDuration" class="text-red-400 font-bold text-lg">52h 18m</div>
                                         <div class="text-xs text-red-300">Without optimization</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-green-400 font-bold text-lg">59h 45m</div>
+                                        <div id="optimizedRouteDuration" class="text-green-400 font-bold text-lg">43h 25m</div>
                                         <div class="text-xs text-green-300">With wind/current data</div>
                                     </div>
                                 </div>
@@ -1297,15 +1297,15 @@
                             <div class="p-4 bg-slate-800/40 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm font-medium text-ocean-300">Fuel Consumption</span>
-                                    <span class="text-xs text-green-400">-24% reduction</span>
+                                    <span class="text-xs text-green-400">-22% reduction</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="text-center">
-                                        <div class="text-red-400 font-bold text-lg">28.5 MT</div>
+                                        <div id="baseFuelConsumption" class="text-red-400 font-bold text-lg">41.0 MT</div>
                                         <div class="text-xs text-red-300">Base calculation</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-green-400 font-bold text-lg">21.7 MT</div>
+                                        <div id="optimizedFuelConsumption" class="text-green-400 font-bold text-lg">32.0 MT</div>
                                         <div class="text-xs text-green-300">Environmental optimized</div>
                                     </div>
                                 </div>
@@ -1315,15 +1315,15 @@
                             <div class="p-4 bg-slate-800/40 rounded-lg">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm font-medium text-ocean-300">Total Cost</span>
-                                    <span class="text-xs text-green-400">$4,080 saved</span>
+                                    <span class="text-xs text-green-400">$5,400 saved</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="text-center">
-                                        <div class="text-red-400 font-bold text-lg">$17,100</div>
+                                        <div id="baseFuelCost" class="text-red-400 font-bold text-lg">$24,590</div>
                                         <div class="text-xs text-red-300">Standard route</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-green-400 font-bold text-lg">$13,020</div>
+                                        <div id="optimizedFuelCost" class="text-green-400 font-bold text-lg">$19,190</div>
                                         <div class="text-xs text-green-300">Optimized route</div>
                                     </div>
                                 </div>
@@ -1345,42 +1345,42 @@
                                     <i class="fas fa-wind mr-2 text-cyan-400"></i>
                                     Wind Assistance
                                 </span>
-                                <span class="text-green-400 font-bold">+12% efficiency</span>
+                                <span class="text-green-400 font-bold">72%</span>
                             </div>
                             <div class="w-full bg-slate-700 rounded-full h-2">
-                                <div class="bg-gradient-to-r from-cyan-500 to-green-400 h-2 rounded-full" style="width: 75%"></div>
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 72%"></div>
                             </div>
-                            <div class="text-xs text-ocean-400 mt-1">Favorable winds detected on 75% of route</div>
-                        </div>
-                        
-                        <!-- Current Impact -->
-                        <div class="mb-6">
-                            <div class="flex justify-between items-center mb-3">
-                                <span class="text-sm font-medium flex items-center">
-                                    <i class="fas fa-water mr-2 text-blue-400"></i>
-                                    Ocean Currents
-                                </span>
-                                <span class="text-green-400 font-bold">+8% speed boost</span>
-                            </div>
-                            <div class="w-full bg-slate-700 rounded-full h-2">
-                                <div class="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full" style="width: 60%"></div>
-                            </div>
-                            <div class="text-xs text-ocean-400 mt-1">Beneficial currents on 60% of route</div>
+                            <div class="text-xs text-ocean-400 mt-1">Favorable winds detected on route</div>
                         </div>
                         
                         <!-- Wave Conditions -->
                         <div class="mb-6">
                             <div class="flex justify-between items-center mb-3">
                                 <span class="text-sm font-medium flex items-center">
-                                    <i class="fas fa-wave-square mr-2 text-purple-400"></i>
+                                    <i class="fas fa-wave-square mr-2 text-yellow-400"></i>
                                     Wave Conditions
                                 </span>
-                                <span class="text-yellow-400 font-bold">-3% resistance</span>
+                                <span class="text-yellow-400 font-bold">45%</span>
                             </div>
                             <div class="w-full bg-slate-700 rounded-full h-2">
-                                <div class="bg-gradient-to-r from-purple-500 to-pink-400 h-2 rounded-full" style="width: 45%"></div>
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 45%"></div>
                             </div>
                             <div class="text-xs text-ocean-400 mt-1">Moderate wave conditions expected</div>
+                        </div>
+                        
+                        <!-- Ocean Currents -->
+                        <div class="mb-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium flex items-center">
+                                    <i class="fas fa-water mr-2 text-blue-400"></i>
+                                    Ocean Currents
+                                </span>
+                                <span class="text-blue-400 font-bold">68%</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: 68%"></div>
+                            </div>
+                            <div class="text-xs text-ocean-400 mt-1">Beneficial currents on route</div>
                         </div>
                         
                         <!-- Overall Environmental Score -->
@@ -1893,8 +1893,42 @@
         }
         
         // Update Advanced Analytics Dashboard with route configuration data
-        function updateAnalyticsDashboard(baseDuration, baseFuelMT, baseFuelCost) {
+        function updateAnalyticsDashboard() {
             try {
+                // Get current route configuration data automatically
+                const sourcePort = document.getElementById('sourcePort').value;
+                const destPort = document.getElementById('destinationPort').value;
+                
+                // Validate route selection
+                if (!validateRouteSelection()) {
+                    return;
+                }
+                
+                // Calculate base route data from current configuration
+                const distance = calculateRouteDistance(sourcePort, destPort);
+                const currentSpeed = parseInt(document.getElementById('speedLimit').value);
+                const fuelPrice = parseFloat(document.getElementById('fuelPrice').value);
+                const fuelConsumptionL100nm = parseFloat(document.getElementById('fuelConsumption').value);
+                
+                // Calculate base duration
+                const totalHours = distance / currentSpeed;
+                const days = Math.floor(totalHours / 24);
+                const hours = Math.floor(totalHours % 24);
+                const minutes = Math.floor((totalHours - Math.floor(totalHours)) * 60);
+                
+                let baseDuration = '';
+                if (days > 0) baseDuration += `${days}d `;
+                if (hours > 0 || days > 0) baseDuration += `${hours}h `;
+                baseDuration += `${minutes}m`;
+                
+                // Calculate base fuel consumption and cost
+                const baseSpeed = 18;
+                const speedFactor = Math.pow(currentSpeed / baseSpeed, 2.5);
+                const adjustedConsumption = fuelConsumptionL100nm * speedFactor;
+                const totalFuelLiters = (adjustedConsumption * distance) / 100;
+                const baseFuelMT = totalFuelLiters / 1000;
+                const baseFuelCost = baseFuelMT * fuelPrice;
+                
                 // Update base route values in analytics dashboard
                 const baseRouteDurationEl = document.getElementById('baseRouteDuration');
                 const baseFuelConsumptionEl = document.getElementById('baseFuelConsumption');
@@ -2131,7 +2165,8 @@
                 
                 // Update wind assistance progress bar
                 const windProgressBar = document.querySelector('.bg-green-500[style*="width: 72%"]');
-                const windPercentageText = document.querySelector('.text-green-400:contains("72%")');
+                const windPercentageElements = document.querySelectorAll('.text-green-400.font-bold');
+                const windPercentageText = Array.from(windPercentageElements).find(el => el.textContent.includes('%'));
                 if (windProgressBar) {
                     windProgressBar.style.width = `${avgWindAssistance}%`;
                 }
@@ -2141,7 +2176,8 @@
                 
                 // Update wave conditions progress bar
                 const waveProgressBar = document.querySelector('.bg-yellow-500[style*="width: 45%"]');
-                const wavePercentageText = document.querySelector('.text-yellow-400:contains("45%")');
+                const wavePercentageElements = document.querySelectorAll('.text-yellow-400.font-bold');
+                const wavePercentageText = Array.from(wavePercentageElements).find(el => el.textContent.includes('%'));
                 if (waveProgressBar) {
                     waveProgressBar.style.width = `${100 - avgWaveResistance}%`;
                 }
@@ -2151,7 +2187,8 @@
                 
                 // Update ocean currents progress bar (use favorable conditions as proxy)
                 const currentProgressBar = document.querySelector('.bg-blue-500[style*="width: 68%"]');
-                const currentPercentageText = document.querySelector('.text-blue-400:contains("68%")');
+                const currentPercentageElements = document.querySelectorAll('.text-blue-400.font-bold');
+                const currentPercentageText = Array.from(currentPercentageElements).find(el => el.textContent.includes('%'));
                 if (currentProgressBar) {
                     currentProgressBar.style.width = `${favorableConditionsPercent}%`;
                 }
@@ -2625,8 +2662,8 @@
                     if (hours > 0 || days > 0) durationText += `${hours}h `;
                     durationText += `${minutes}m`;
                     
-                    // Update analytics dashboard with real environmental calculations
-                    updateAnalyticsDashboard(durationText, totalFuelMT, fuelCost);
+                    // Update Advanced Analytics Dashboard with base route data
+                    updateAnalyticsDashboard();
                 }
                 
             } catch (error) {
@@ -2920,7 +2957,12 @@
         }
         // Initialize all advanced charts
         function initPerformanceChart() {
-            const ctx = document.getElementById('performanceChart').getContext('2d');
+            const canvas = document.getElementById('performanceChart');
+            if (!canvas) {
+                console.log('Performance chart canvas not found, skipping initialization');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
             performanceChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
@@ -2955,7 +2997,12 @@
             });
         }
         function initWeatherTrendChart() {
-            const ctx = document.getElementById('weatherTrendChart').getContext('2d');
+            const canvas = document.getElementById('weatherTrendChart');
+            if (!canvas) {
+                console.log('Weather trend chart canvas not found, skipping initialization');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
             weatherTrendChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -2999,7 +3046,12 @@
             });
         }
         function initFuelChart() {
-            const ctx = document.getElementById('fuelChart').getContext('2d');
+            const canvas = document.getElementById('fuelChart');
+            if (!canvas) {
+                console.log('Fuel chart canvas not found, skipping initialization');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
             fuelChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -3949,12 +4001,14 @@
             // Port selection listeners
             document.getElementById('sourcePort').addEventListener('change', () => {
                 updateRouteDisplay();
+                updateAnalyticsDashboard(); // Sync analytics with route changes
                 if (validateRouteSelection()) {
                     setTimeout(drawRoute, 500); // Give map time to be ready
                 }
             });            
             document.getElementById('destinationPort').addEventListener('change', () => {
                 updateRouteDisplay();
+                updateAnalyticsDashboard(); // Sync analytics with route changes
                 if (validateRouteSelection()) {
                     setTimeout(drawRoute, 500);
                 }
@@ -4027,6 +4081,7 @@
             document.getElementById('speedLimit').addEventListener('input', () => {
                 updateSpeedSlider();
                 updateRouteDisplay(); // Update duration when speed changes
+                updateAnalyticsDashboard(); // Sync analytics with speed changes
             });
             
             // Fuel price listener - sync with route calculations
@@ -4035,6 +4090,7 @@
                 if (value >= 400 && value <= 1200) {
                     e.target.style.borderColor = 'rgba(34, 197, 94, 0.5)';
                     updateRouteDisplay(); // Update fuel cost when price changes
+                    updateAnalyticsDashboard(); // Sync analytics with fuel price changes
                 } else {
                     e.target.style.borderColor = 'rgba(239, 68, 68, 0.5)';
                 }
@@ -4046,6 +4102,7 @@
                 if (value >= 2000 && value <= 10000) {
                     e.target.style.borderColor = 'rgba(34, 197, 94, 0.5)';
                     updateRouteDisplay(); // Update fuel cost when consumption changes
+                    updateAnalyticsDashboard(); // Sync analytics with fuel consumption changes
                 } else {
                     e.target.style.borderColor = 'rgba(239, 68, 68, 0.5)';
                 }
@@ -4058,7 +4115,8 @@
             setInterval(checkAPI, 30000);            
             // Initialize displays
             updateSpeedSlider();
-            updateRouteDisplay();            
+            updateRouteDisplay();
+            updateAnalyticsDashboard(); // Initialize analytics with real route data
             console.log('Weather Engine Maritime - Initialization complete');
         });
         // Enhanced floating particles
