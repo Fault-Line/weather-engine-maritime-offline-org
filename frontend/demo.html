@@ -890,14 +890,6 @@
                         <i class="fas fa-ship mr-2 text-green-400"></i>Departure Port
                     </label>
                     <select id="sourcePort" class="w-full glass rounded-xl px-4 py-3 text-white bg-white/10 border border-white/20 focus:border-ocean-400 focus:ring-2 focus:ring-ocean-400/50 transition-all">
-                        <option class="text-black" value="mumbai">🇮🇳 Mumbai Port (INMUN)</option>
-                        <option class="text-black" value="chennai">🇮🇳 Chennai Port (INMAA)</option>
-                        <option class="text-black" value="visakhapatnam">🇮🇳 Visakhapatnam Port (INVTZ)</option>
-                        <option class="text-black" value="kolkata">🇮🇳 Kolkata Port (INCCU)</option>
-                        <option class="text-black" value="singapore">🇸🇬 Singapore Port (SGSIN)</option>
-                        <option class="text-black" value="dubai">🇦🇪 Dubai Port (AEJEA)</option>
-                        <option class="text-black" value="hambantota">🇱🇰 Hambantota Port (LKHBT)</option>
-                        <option class="text-black" value="kochi">🇮🇳 Kochi Port (INCOK)</option>
                         <option class="text-black" value="gopalpur">🇮🇳 Gopalpur Port (INGOP)</option>
                         <option class="text-black" value="rotterdam">🇳🇱 Rotterdam Port (NLRTM)</option>
                     </select>
@@ -908,18 +900,8 @@
                         <i class="fas fa-flag-checkered mr-2 text-red-400"></i>Destination Port
                     </label>
                     <select id="destinationPort" class="w-full glass rounded-xl px-4 py-3 text-white bg-white/10 border border-white/20 focus:border-ocean-400 focus:ring-2 focus:ring-ocean-400/50 transition-all">
-                        <option class="text-black" value="kochi" selected>🇮🇳 Kochi Port (INCOK)</option>
-                        <option class="text-black" value="mumbai">🇮🇳 Mumbai Port (INMUN)</option>
-                        <option class="text-black" value="chennai">🇮🇳 Chennai Port (INMAA)</option>
-                        <option class="text-black" value="visakhapatnam">🇮🇳 Visakhapatnam Port (INVTZ)</option>
-                        <option class="text-black" value="kolkata">🇮🇳 Kolkata Port (INCCU)</option>
+                        <option class="text-black" value="newharbour" selected>🇺🇸 New Harbour (INNH)</option>
                         <option class="text-black" value="singapore">🇸🇬 Singapore Port (SGSIN)</option>
-                        <option class="text-black" value="dubai">🇦🇪 Dubai Port (AEJEA)</option>
-                        <option class="text-black" value="hambantota">🇱🇰 Hambantota Port (LKHBT)</option>
-                        <option class="text-black" value="newharbour">🇺🇸 New Harbour (INNH)</option>
-                        <option class="text-black" value="gopalpur">🇮🇳 Gopalpur Port (INGOP)</option>
-                        <option class="text-black" value="rotterdam">🇳🇱 Rotterdam Port (NLRTM)</option>
-                        <option class="text-black" value="singapore_weather">🇸🇬 Singapore Port (Weather Route)</option>
                     </select>
                 </div>
             </div>     
@@ -1081,7 +1063,7 @@
                     <h3 class="text-xl font-bold mb-4 flex items-center justify-between">
                         <span class="flex items-center">
                             <i class="fas fa-cloud-sun mr-3 text-yellow-400"></i>
-                            Weather Intelligence
+                            Charts & Data Observation
                         </span>
                         <div class="flex items-center space-x-2 text-xs">
                             <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -1130,8 +1112,28 @@
                         </div>
                     </div>     
                     <!-- Enhanced Weather Chart -->
-                    <div class="bg-black/20 rounded-lg p-3">
+                    <div class="bg-black/20 rounded-lg p-3 mb-4">
                         <canvas id="weatherChart" class="w-full h-32"></canvas>
+                    </div>
+                    
+                    <!-- Waypoint Weather Data -->
+                    <div class="bg-black/20 rounded-lg p-3">
+                        <h4 class="text-sm font-bold mb-3 flex items-center justify-between">
+                            <span class="flex items-center">
+                                <i class="fas fa-map-marker-alt mr-2 text-cyan-400"></i>
+                                Waypoint Weather Data
+                            </span>
+                            <button id="refreshWaypointWeather" class="text-xs px-2 py-1 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 rounded border border-cyan-600/30 transition-colors" title="Refresh waypoint weather data">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </h4>
+                        <div id="waypointWeatherContainer" class="max-h-48 overflow-y-auto maritime-scrollbar">
+                            <div id="waypointWeatherData" class="space-y-2 text-xs">
+                                <div class="text-center text-ocean-300 py-4">
+                                    Generate a route to view waypoint weather data
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1446,21 +1448,17 @@
         let weatherTrendChart;
         let fuelChart;
         let activeMapLayers = [];
-        const API_BASE = 'http://localhost:8000';        
+        let waypointWeatherData = []; // Store weather data for each waypoint
+        const API_BASE = 'http://localhost:8000';
+        
+        // Windy API Configuration
+        const WINDY_API_KEY = '8fXdoKoZJNYJivi9shZMtN6KE1TSyaYX'; // Replace with your actual Windy API key        
         // Port coordinates database
         const PORTS = {
-            mumbai: { name: 'Mumbai Port (INMUN)', coords: [19.0760, 72.8777], country: '🇮🇳', code: 'INMUN' },
-            chennai: { name: 'Chennai Port (INMAA)', coords: [13.0827, 80.2707], country: '🇮🇳', code: 'INMAA' },
-            visakhapatnam: { name: 'Visakhapatnam Port (INVTZ)', coords: [17.6868, 83.2185], country: '🇮🇳', code: 'INVTZ' },
-            kolkata: { name: 'Kolkata Port (INCCU)', coords: [22.5726, 88.3639], country: '🇮🇳', code: 'INCCU' },
-            singapore: { name: 'Singapore Port (SGSIN)', coords: [1.2966, 103.8006], country: '🇸🇬', code: 'SGSIN' },
-            dubai: { name: 'Dubai Port (AEJEA)', coords: [25.2769, 55.3073], country: '🇦🇪', code: 'AEJEA' },
-            hambantota: { name: 'Hambantota Port (LKHBT)', coords: [6.1240, 81.1185], country: '🇱🇰', code: 'LKHBT' },
-            kochi: { name: 'Kochi Port (INCOK)', coords: [9.9312, 76.2673], country: '🇮🇳', code: 'INCOK' },
             gopalpur: { name: 'Gopalpur Port (INGOP)', coords: [30.213982, 32.557983], country: '🇮🇳', code: 'INGOP' },
             newharbour: { name: 'New Harbour (INNH)', coords: [40.7081, -73.9779], country: '🇺🇸', code: 'INNH' },
             rotterdam: { name: 'Rotterdam Port (NLRTM)', coords: [30.213982, 32.557983], country: '🇳🇱', code: 'NLRTM' },
-            singapore_weather: { name: 'Singapore Port (Weather Route)', coords: [1.1, 103.6], country: '🇸🇬', code: 'SGSIN' }
+            singapore: { name: 'Singapore Port (SGSIN)', coords: [1.1, 103.6], country: '🇸🇬', code: 'SGSIN' }
         };
 
         // Predefined routes with exact waypoints from Weather Document
@@ -1525,22 +1523,22 @@
             offset: 100
         });
         // Live time display
-        // Enhanced metrics animation with more realistic values
+        // Static metrics display - no random values
         function animateMetrics() {
             const time = Date.now();            
-            // Wave height (1.8 - 3.2m)
-            const waveHeight = (2.0 + Math.sin(time / 10000) * 0.6 + Math.random() * 0.4).toFixed(1);
+            // Wave height - deterministic based on time
+            const waveHeight = (2.3 + Math.sin(time / 10000) * 0.6).toFixed(1);
             document.getElementById('waveHeight').textContent = waveHeight + 'm';
             document.getElementById('currentWaves').textContent = waveHeight + 'm';            
-            // Wind speed (8 - 18 kts)
-            const windSpeed = (13 + Math.cos(time / 8000) * 3 + Math.random() * 2).toFixed(1);
+            // Wind speed - deterministic based on time
+            const windSpeed = (13 + Math.cos(time / 8000) * 3).toFixed(1);
             document.getElementById('windSpeed').textContent = windSpeed + ' kts';
             document.getElementById('currentWind').textContent = windSpeed + ' kts';            
-            // Fuel savings (12 - 20%)
-            const fuelSavings = (15 + Math.sin(time / 12000) * 2.5 + Math.random() * 1).toFixed(1);
+            // Fuel savings - deterministic based on time
+            const fuelSavings = (15.5 + Math.sin(time / 12000) * 2.5).toFixed(1);
             document.getElementById('fuelSavings').textContent = fuelSavings + '%';            
-            // Visibility (10 - 25 km)
-            const visibility = (15 + Math.cos(time / 15000) * 5 + Math.random() * 3).toFixed(1);
+            // Visibility - deterministic based on time
+            const visibility = (17 + Math.cos(time / 15000) * 5).toFixed(1);
             document.getElementById('currentVisibility').textContent = visibility + ' km';            
             // Update main fuel savings metric (keeping the one in the metrics section)
             const mainFuelSavingsElement = document.querySelector('.metric-counter#fuelSavings');
@@ -1901,6 +1899,11 @@
                 // Create route with waypoints
                 const waypoints = generateWaypoints(source.coords, destination.coords);
                 const fullRoute = [source.coords, ...waypoints, destination.coords];
+                
+                // Fetch weather data for waypoints
+                if (waypoints.length > 0) {
+                    fetchWaypointWeather(waypoints);
+                }
                 // Add route line with animation
                 const routeLine = L.polyline(fullRoute, {
                     color: '#0ea5e9',
@@ -1940,27 +1943,220 @@
             const sourcePort = document.getElementById('sourcePort').value;
             const destPort = document.getElementById('destinationPort').value;
             
-            // Check for predefined routes first
+            // Only use predefined routes
             const routeKey = `${sourcePort}_${destPort}`;
             if (PREDEFINED_ROUTES[routeKey]) {
                 return PREDEFINED_ROUTES[routeKey].waypoints;
             }
             
-            // Fallback to generated waypoints for other routes
-            const waypoints = [];
-            const steps = 3; // Number of waypoints            
-            for (let i = 1; i <= steps; i++) {
-                const ratio = i / (steps + 1);
-                const lat = start[0] + (end[0] - start[0]) * ratio;
-                const lon = start[1] + (end[1] - start[1]) * ratio;                
-                // Add some variation to make route more realistic
-                const variation = 0.5;
-                const latVar = (Math.random() - 0.5) * variation;
-                const lonVar = (Math.random() - 0.5) * variation;                
-                waypoints.push([lat + latVar, lon + lonVar]);
-            }            
-            return waypoints;
+            // Return empty array if no predefined route exists
+            return [];
         }
+        
+        // Function to fetch weather data for waypoints
+        async function fetchWaypointWeather(waypoints) {
+            waypointWeatherData = []; // Clear previous data
+            const waypointContainer = document.getElementById('waypointWeatherData');
+            
+            // Show loading state
+            waypointContainer.innerHTML = `
+                <div class="text-center text-ocean-300 py-4">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>
+                    Loading waypoint weather data...
+                </div>
+            `;
+            
+            try {
+                for (let i = 0; i < waypoints.length; i++) {
+                    const waypoint = waypoints[i];
+                    
+                    // Fetch real weather data from Marine API
+                    const weatherData = await fetchWindyWeatherAPI(waypoint[0], waypoint[1]);
+                    
+                    // Check if API returned an error
+                    if (weatherData.error) {
+                        // Stop processing and show error in the display
+                        waypointContainer.innerHTML = `
+                            <div class="text-center text-red-400 py-6 px-4 bg-red-900/20 rounded-lg border border-red-600/30">
+                                <i class="fas fa-exclamation-triangle text-2xl mb-3"></i>
+                                <div class="font-semibold mb-2">Weather Data Unavailable</div>
+                                <div class="text-sm text-red-300">${weatherData.errorMessage}</div>
+                                <div class="text-xs text-red-400 mt-2">Check your internet connection and try again</div>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    waypointWeatherData.push({
+                        index: i + 1,
+                        coordinates: waypoint,
+                        windSpeed: weatherData.windSpeed,
+                        windDirection: weatherData.windDirection,
+                        waveHeight: weatherData.waveHeight,
+                        waveDirection: weatherData.waveDirection,
+                        wavePeriod: weatherData.wavePeriod,
+                        swellHeight: weatherData.swellHeight,
+                        swellDirection: weatherData.swellDirection,
+                        swellPeriod: weatherData.swellPeriod,
+                        windWaveHeight: weatherData.windWaveHeight,
+                        windWaveDirection: weatherData.windWaveDirection,
+                        windWavePeriod: weatherData.windWavePeriod,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                // Update display
+                updateWaypointWeatherDisplay();
+                
+            } catch (error) {
+                console.error('Error fetching waypoint weather:', error);
+                waypointContainer.innerHTML = `
+                    <div class="text-center text-red-400 py-4">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Error loading weather data
+                    </div>
+                `;
+            }
+        }
+        
+        // Fetch comprehensive marine weather data using Open-Meteo Marine API
+        async function fetchWindyWeatherAPI(lat, lon) {
+            try {
+                // Open-Meteo Marine API - includes wave height, swell, and wind data
+                const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&current=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height,wind_wave_direction,wind_wave_period&timezone=auto`;
+                
+                // Also fetch atmospheric data for wind
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&timezone=auto`;
+                
+                // Fetch both marine and weather data in parallel
+                const [marineResponse, weatherResponse] = await Promise.all([
+                    fetch(marineUrl, { method: 'GET', headers: { 'Accept': 'application/json' } }),
+                    fetch(weatherUrl, { method: 'GET', headers: { 'Accept': 'application/json' } })
+                ]);
+                
+                if (!marineResponse.ok || !weatherResponse.ok) {
+                    throw new Error(`API error: Marine ${marineResponse.status}, Weather ${weatherResponse.status}`);
+                }
+                
+                const [marineData, weatherData] = await Promise.all([
+                    marineResponse.json(),
+                    weatherResponse.json()
+                ]);
+                
+                // Console log the actual API responses
+                console.log('Marine API Response for', lat, lon, ':', marineData);
+                console.log('Weather API Response for', lat, lon, ':', weatherData);
+                
+                // Extract wind data
+                const windSpeed = weatherData.current?.wind_speed_10m || 0; // m/s
+                const windDirection = weatherData.current?.wind_direction_10m || 0; // degrees
+                const windSpeedKnots = windSpeed * 1.94384;
+                
+                // Extract marine data
+                const waveHeight = marineData.current?.wave_height || 0; // meters
+                const waveDirection = marineData.current?.wave_direction || 0; // degrees
+                const wavePeriod = marineData.current?.wave_period || 0; // seconds
+                
+                const swellHeight = marineData.current?.swell_wave_height || 0; // meters
+                const swellDirection = marineData.current?.swell_wave_direction || 0; // degrees
+                const swellPeriod = marineData.current?.swell_wave_period || 0; // seconds
+                
+                const windWaveHeight = marineData.current?.wind_wave_height || 0; // meters
+                const windWaveDirection = marineData.current?.wind_wave_direction || 0; // degrees
+                const windWavePeriod = marineData.current?.wind_wave_period || 0; // seconds
+                
+                const processedData = {
+                    windSpeed: Math.round(windSpeedKnots * 10) / 10,
+                    windDirection: Math.round(windDirection),
+                    waveHeight: Math.round(waveHeight * 10) / 10,
+                    waveDirection: Math.round(waveDirection),
+                    wavePeriod: Math.round(wavePeriod * 10) / 10,
+                    swellHeight: Math.round(swellHeight * 10) / 10,
+                    swellDirection: Math.round(swellDirection),
+                    swellPeriod: Math.round(swellPeriod * 10) / 10,
+                    windWaveHeight: Math.round(windWaveHeight * 10) / 10,
+                    windWaveDirection: Math.round(windWaveDirection),
+                    windWavePeriod: Math.round(windWavePeriod * 10) / 10
+                };
+                
+                console.log('Processed weather data for', lat, lon, ':', processedData);
+                return processedData;
+                
+            } catch (error) {
+                console.error('Error fetching marine weather data:', error);
+                
+                // Return error flag instead of fallback data
+                return {
+                    error: true,
+                    errorMessage: error.message || 'Failed to fetch weather data'
+                };
+            }
+        }
+        
+        // Update waypoint weather display
+        function updateWaypointWeatherDisplay() {
+            const container = document.getElementById('waypointWeatherData');
+            
+            if (waypointWeatherData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-ocean-300 py-4">
+                        Generate a route to view waypoint weather data
+                    </div>
+                `;
+                return;
+            }
+            
+            const weatherHTML = waypointWeatherData.map(data => {
+                const windDirectionText = getWindDirectionText(data.windDirection);
+                const waveDirectionText = getWindDirectionText(data.waveDirection);
+                const swellDirectionText = getWindDirectionText(data.swellDirection);
+                
+                return `
+                    <div class="py-3 px-3 bg-slate-800/30 rounded-lg border border-ocean-700/20 hover:bg-slate-700/30 transition-colors">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-cyan-400 font-mono text-xs bg-cyan-900/30 px-2 py-1 rounded">WP${data.index}</span>
+                            <div class="text-xs text-ocean-300 text-right">
+                                ${data.coordinates[0].toFixed(4)}°, ${data.coordinates[1].toFixed(4)}°
+                            </div>
+                        </div>
+                        
+                        <!-- Wind Data -->
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div class="text-xs">
+                                <div class="text-yellow-400 font-semibold">${data.windSpeed} kts</div>
+                                <div class="text-ocean-300">${windDirectionText} (${data.windDirection}°)</div>
+                            </div>
+                            <div class="text-xs text-right">
+                                <div class="text-cyan-400 font-semibold">${data.waveHeight}m waves</div>
+                                <div class="text-ocean-300">${waveDirectionText} ${data.wavePeriod}s</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Swell Data -->
+                        <div class="grid grid-cols-2 gap-2 text-xs border-t border-ocean-700/20 pt-2">
+                            <div>
+                                <div class="text-blue-400">Swell: ${data.swellHeight}m</div>
+                                <div class="text-ocean-400">${swellDirectionText} ${data.swellPeriod}s</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-green-400">Wind Wave: ${data.windWaveHeight}m</div>
+                                <div class="text-ocean-400">${data.windWavePeriod}s period</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = weatherHTML;
+        }
+        
+        // Convert wind direction degrees to compass direction
+        function getWindDirectionText(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
+        
         // Enhanced weather chart
         function initWeatherChart() {
             const ctx = document.getElementById('weatherChart').getContext('2d');
@@ -2794,41 +2990,43 @@
             `;
             weatherOverlay.style.border = '3px solid rgba(59, 130, 246, 0.8)';
             weatherOverlay.style.borderRadius = '12px';            
-            // Add animated weather particles
+            // Add floating particles - deterministic positioning
             for (let i = 0; i < 15; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'absolute w-3 h-3 bg-cyan-200 rounded-full opacity-80';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.top = Math.random() * 100 + '%';
-                particle.style.animation = `float ${3 + Math.random() * 2}s ease-in-out infinite`;
-                particle.style.animationDelay = Math.random() * 2 + 's';
+                particle.style.left = (i * 6.67) + '%';
+                particle.style.top = ((i * 13.33) % 100) + '%';
+                particle.style.animation = `float ${3 + (i % 3)}s ease-in-out infinite`;
+                particle.style.animationDelay = (i * 0.2) + 's';
                 particle.style.boxShadow = '0 0 10px rgba(59, 130, 246, 0.6)';
                 weatherOverlay.appendChild(particle);
             }            
-            // Add weather icons for different zones
+            // Add weather icons for different zones - deterministic positioning
             const weatherIcons = ['🌧️', '⛈️', '🌦️', '☀️', '⛅', '🌤️'];
+            const iconPositions = [[15, 20], [70, 15], [25, 60], [80, 70], [50, 35], [10, 80]];
             for (let i = 0; i < 6; i++) {
                 const icon = document.createElement('div');
                 icon.className = 'absolute text-2xl opacity-90';
                 icon.innerHTML = weatherIcons[i];
-                icon.style.left = Math.random() * 85 + '%';
-                icon.style.top = Math.random() * 85 + '%';
-                icon.style.animation = `pulse ${2 + Math.random()}s ease-in-out infinite`;
-                icon.style.animationDelay = Math.random() * 1 + 's';
+                icon.style.left = iconPositions[i][0] + '%';
+                icon.style.top = iconPositions[i][1] + '%';
+                icon.style.animation = `pulse ${2 + (i % 3)}s ease-in-out infinite`;
+                icon.style.animationDelay = (i * 0.3) + 's';
                 icon.style.filter = 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
                 icon.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
                 weatherOverlay.appendChild(icon);
             }            
-            // Add temperature indicators
+            // Add temperature indicators - deterministic positioning
             const temps = ['22°C', '25°C', '19°C', '28°C', '21°C'];
+            const tempPositions = [[30, 25], [75, 40], [20, 70], [85, 20], [45, 85]];
             for (let i = 0; i < 5; i++) {
                 const temp = document.createElement('div');
                 temp.className = 'absolute text-white text-sm font-bold bg-slate-700/80 px-2 py-1 rounded-full border border-white/50';
                 temp.innerHTML = temps[i];
-                temp.style.left = Math.random() * 80 + '%';
-                temp.style.top = Math.random() * 80 + '%';
-                temp.style.animation = `pulse ${1.5 + Math.random()}s ease-in-out infinite`;
-                temp.style.animationDelay = Math.random() * 2 + 's';
+                temp.style.left = tempPositions[i][0] + '%';
+                temp.style.top = tempPositions[i][1] + '%';
+                temp.style.animation = `pulse ${1.5 + (i % 2)}s ease-in-out infinite`;
+                temp.style.animationDelay = (i * 0.4) + 's';
                 temp.style.boxShadow = '0 0 10px rgba(59, 130, 246, 0.6)';
                 weatherOverlay.appendChild(temp);
             }            
@@ -2880,30 +3078,32 @@
             windOverlay.style.zIndex = '1000'; // Very high z-index to ensure it's above map tiles
             windOverlay.style.border = '3px solid rgba(6, 182, 212, 0.8)';
             windOverlay.style.borderRadius = '12px';            
-            // Add wind direction arrows
+            // Add wind direction arrows - deterministic positioning
+            const arrowRotations = [45, 90, 135, 180, 225, 270, 315, 0, 60, 120, 240, 300, 30, 150, 210, 330, 75, 105];
             for (let i = 0; i < 18; i++) {
                 const arrow = document.createElement('div');
                 arrow.className = 'absolute text-cyan-300 opacity-90 font-bold';
                 arrow.innerHTML = '➤';
-                arrow.style.left = Math.random() * 90 + '%';
-                arrow.style.top = Math.random() * 90 + '%';
+                arrow.style.left = ((i * 5) % 90) + '%';
+                arrow.style.top = ((i * 7) % 90) + '%';
                 arrow.style.fontSize = '16px';
-                arrow.style.transform = `rotate(${Math.random() * 360}deg)`;
+                arrow.style.transform = `rotate(${arrowRotations[i]}deg)`;
                 arrow.style.animation = `pulse 2s ease-in-out infinite`;
-                arrow.style.animationDelay = Math.random() * 2 + 's';
+                arrow.style.animationDelay = (i * 0.1) + 's';
                 arrow.style.filter = 'drop-shadow(0 0 3px rgba(6, 182, 212, 0.8))';
                 windOverlay.appendChild(arrow);
             }            
-            // Add wind speed indicators
+            // Add wind speed indicators - deterministic positioning
             const windSpeeds = ['12kt', '8kt', '15kt', '6kt', '18kt', '11kt'];
+            const speedPositions = [[25, 30], [65, 20], [40, 65], [80, 50], [15, 75], [70, 80]];
             for (let i = 0; i < 6; i++) {
                 const speed = document.createElement('div');
                 speed.className = 'absolute text-cyan-200 text-xs font-bold bg-cyan-900/70 px-2 py-1 rounded';
                 speed.innerHTML = windSpeeds[i];
-                speed.style.left = Math.random() * 80 + '%';
-                speed.style.top = Math.random() * 80 + '%';
-                speed.style.animation = `pulse ${1.8 + Math.random()}s ease-in-out infinite`;
-                speed.style.animationDelay = Math.random() * 2 + 's';
+                speed.style.left = speedPositions[i][0] + '%';
+                speed.style.top = speedPositions[i][1] + '%';
+                speed.style.animation = `pulse ${1.8 + (i % 2)}s ease-in-out infinite`;
+                speed.style.animationDelay = (i * 0.3) + 's';
                 windOverlay.appendChild(speed);
             }            
             // Add wind flow lines
@@ -2972,14 +3172,15 @@
             const trafficOverlay = document.createElement('div');
             trafficOverlay.id = 'trafficLayerOverlay';
             trafficOverlay.className = 'absolute inset-0 pointer-events-none z-10';            
-            // Add moving vessel indicators
+            // Add moving vessel indicators - deterministic positioning
+            const vesselPositions = [[20, 30], [60, 15], [35, 70], [80, 45], [15, 85], [75, 25]];
             for (let i = 0; i < 6; i++) {
                 const vessel = document.createElement('div');
                 vessel.className = 'absolute w-3 h-3 bg-yellow-400 rounded-full';
-                vessel.style.left = Math.random() * 90 + '%';
-                vessel.style.top = Math.random() * 90 + '%';
-                vessel.style.animation = `vesselMove ${8 + Math.random() * 4}s linear infinite`;
-                vessel.style.animationDelay = Math.random() * 3 + 's';
+                vessel.style.left = vesselPositions[i][0] + '%';
+                vessel.style.top = vesselPositions[i][1] + '%';
+                vessel.style.animation = `vesselMove ${8 + (i % 4)}s linear infinite`;
+                vessel.style.animationDelay = (i * 0.5) + 's';
                 trafficOverlay.appendChild(vessel);
             }            
             mapElement.appendChild(trafficOverlay);
@@ -2991,16 +3192,17 @@
             const safetyOverlay = document.createElement('div');
             safetyOverlay.id = 'safetyLayerOverlay';
             safetyOverlay.className = 'absolute inset-0 pointer-events-none z-10';            
-            // Add safety zone indicators
+            // Add safety zone indicators - deterministic positioning
+            const safetyPositions = [[25, 35], [70, 20], [40, 75], [80, 60]];
             for (let i = 0; i < 4; i++) {
                 const zone = document.createElement('div');
                 zone.className = 'absolute border-2 border-red-400 border-dashed rounded-full opacity-60';
                 zone.style.width = '60px';
                 zone.style.height = '60px';
-                zone.style.left = Math.random() * 80 + '%';
-                zone.style.top = Math.random() * 80 + '%';
+                zone.style.left = safetyPositions[i][0] + '%';
+                zone.style.top = safetyPositions[i][1] + '%';
                 zone.style.animation = `pulse 3s ease-in-out infinite`;
-                zone.style.animationDelay = Math.random() * 2 + 's';
+                zone.style.animationDelay = (i * 0.5) + 's';
                 safetyOverlay.appendChild(zone);
             }            
             mapElement.appendChild(safetyOverlay);
@@ -3147,7 +3349,16 @@
                 window.scanButtonClicked = true; // Set flag to indicate scan button was clicked
                 loadAlerts();
             });
-            document.getElementById('refreshWeather').addEventListener('click', loadForecast);            
+            document.getElementById('refreshWeather').addEventListener('click', loadForecast);
+            
+            // Waypoint weather refresh listener
+            document.getElementById('refreshWaypointWeather').addEventListener('click', () => {
+                if (waypointWeatherData.length > 0) {
+                    const waypoints = waypointWeatherData.map(data => data.coordinates);
+                    fetchWaypointWeather(waypoints);
+                }
+            });
+            
             // Position toggle listener for alert popups
             document.getElementById('positionToggle').addEventListener('click', togglePopupPosition);            
             // Map control listeners
@@ -3231,26 +3442,38 @@
         function createFloatingElement() {
             const element = document.createElement('div');
             element.className = 'floating-particles';
-            element.style.left = Math.random() * 100 + '%';
-            element.style.animationDelay = Math.random() * 10 + 's';
-            element.style.animationDuration = (Math.random() * 10 + 15) + 's';            
-            // Add different particle types
+            
+            // Use deterministic positioning based on current time
+            const time = Date.now();
+            const position = ((time / 1000) % 100);
+            element.style.left = position + '%';
+            element.style.animationDelay = ((time / 100) % 10) + 's';
+            element.style.animationDuration = (((time / 200) % 10) + 15) + 's';            
+            
+            // Add different particle types - deterministic selection
             const types = ['💧', '🌊', '⭐', '✨'];
-            if (Math.random() > 0.8) {
-                element.innerHTML = types[Math.floor(Math.random() * types.length)];
+            const shouldShowIcon = ((time / 500) % 5) === 0;
+            if (shouldShowIcon) {
+                const typeIndex = Math.floor((time / 1000) % types.length);
+                element.innerHTML = types[typeIndex];
                 element.style.fontSize = '12px';
                 element.style.background = 'transparent';
             }            
             document.body.appendChild(element);            
+            // Remove element after animation
             setTimeout(() => {
-                element.remove();
+                if (element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
             }, 25000);
         }
         // Create floating particles periodically
         setInterval(createFloatingElement, 2000);
-        // Simulate vessel movement
+        // Update vessel count - deterministic based on time
         setInterval(() => {
-            document.getElementById('visibleVessels').textContent = Math.floor(Math.random() * 5) + 2;
+            const time = Date.now();
+            const vesselCount = Math.floor(((time / 10000) % 5)) + 2;
+            document.getElementById('visibleVessels').textContent = vesselCount;
         }, 10000);
         // Live India Time Display
         function updateIndiaTime() {
