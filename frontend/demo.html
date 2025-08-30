@@ -1781,10 +1781,24 @@
                 document.getElementById('routeDistance').textContent = distance.toFixed(0) + ' nm';                
                 // Calculate duration based on current speed setting
                 const currentSpeed = parseInt(document.getElementById('speedLimit').value);
-                const duration = distance / currentSpeed;
-                const hours = Math.floor(duration);
-                const minutes = Math.floor((duration - hours) * 60);
-                document.getElementById('routeDuration').textContent = `${hours}h ${minutes}m`;                
+                const totalHours = distance / currentSpeed;
+                
+                // Convert to days, hours, minutes format
+                const days = Math.floor(totalHours / 24);
+                const hours = Math.floor(totalHours % 24);
+                const minutes = Math.floor((totalHours - Math.floor(totalHours)) * 60);
+                
+                // Format duration string
+                let durationText = '';
+                if (days > 0) {
+                    durationText += `${days}d `;
+                }
+                if (hours > 0 || days > 0) {
+                    durationText += `${hours}h `;
+                }
+                durationText += `${minutes}m`;
+                
+                document.getElementById('routeDuration').textContent = durationText;                
                 // Calculate fuel cost (rough estimation)
                 const fuelCost = distance * 42; // $42 per nautical mile rough estimate
                 document.getElementById('fuelCost').textContent = '$' + fuelCost.toFixed(0);
