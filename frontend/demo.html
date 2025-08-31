@@ -2274,12 +2274,17 @@
                     );
                     
                     // Apply environmental factors to speed and fuel consumption
+                    // Use actual current speed setting, not fixed base speed
                     const optimizedSpeed = baseSpeed * environmentalFactors.speedMultiplier;
                     const optimizedFuelRate = baseFuelConsumptionL100nm * environmentalFactors.fuelMultiplier;
                     
+                    // Apply speed factor for fuel consumption (same as base route)
+                    const speedFactor = Math.pow(baseSpeed / 18, 2.5);
+                    const adjustedOptimizedFuelRate = optimizedFuelRate * speedFactor;
+                    
                     // Calculate segment time and fuel consumption
                     const segmentTime = segmentDistance / optimizedSpeed;
-                    const segmentFuelConsumption = (optimizedFuelRate * segmentDistance) / 100;
+                    const segmentFuelConsumption = (adjustedOptimizedFuelRate * segmentDistance) / 100;
                     
                     totalOptimizedTime += segmentTime;
                     totalOptimizedFuelConsumption += segmentFuelConsumption;
