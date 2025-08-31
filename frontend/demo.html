@@ -1663,18 +1663,24 @@
             const time = Date.now();            
             // Wave height - deterministic based on time
             const waveHeight = (2.3 + Math.sin(time / 10000) * 0.6).toFixed(1);
-            document.getElementById('waveHeight').textContent = waveHeight + 'm';
-            document.getElementById('currentWaves').textContent = waveHeight + 'm';            
+            const waveHeightEl = document.getElementById('waveHeight');
+            const currentWavesEl = document.getElementById('currentWaves');
+            if (waveHeightEl) waveHeightEl.textContent = waveHeight + 'm';
+            if (currentWavesEl) currentWavesEl.textContent = waveHeight + 'm';            
             // Wind speed - deterministic based on time
             const windSpeed = (13 + Math.cos(time / 8000) * 3).toFixed(1);
-            document.getElementById('windSpeed').textContent = windSpeed + ' kts';
-            document.getElementById('currentWind').textContent = windSpeed + ' kts';            
+            const windSpeedEl = document.getElementById('windSpeed');
+            const currentWindEl = document.getElementById('currentWind');
+            if (windSpeedEl) windSpeedEl.textContent = windSpeed + ' kts';
+            if (currentWindEl) currentWindEl.textContent = windSpeed + ' kts';            
             // Fuel savings - deterministic based on time
             const fuelSavings = (15.5 + Math.sin(time / 12000) * 2.5).toFixed(1);
-            document.getElementById('fuelSavings').textContent = fuelSavings + '%';            
+            const fuelSavingsEl = document.getElementById('fuelSavings');
+            if (fuelSavingsEl) fuelSavingsEl.textContent = fuelSavings + '%';            
             // Visibility - deterministic based on time
             const visibility = (17 + Math.cos(time / 15000) * 5).toFixed(1);
-            document.getElementById('currentVisibility').textContent = visibility + ' km';            
+            const currentVisibilityEl = document.getElementById('currentVisibility');
+            if (currentVisibilityEl) currentVisibilityEl.textContent = visibility + ' km';            
             // Update main fuel savings metric (keeping the one in the metrics section)
             const mainFuelSavingsElement = document.querySelector('.metric-counter#fuelSavings');
             if (mainFuelSavingsElement) {
