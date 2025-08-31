@@ -1660,35 +1660,52 @@
         // Live time display
         // Static metrics display - no random values
         function animateMetrics() {
-            const time = Date.now();            
-            // Wave height - deterministic based on time
-            const waveHeight = (2.3 + Math.sin(time / 10000) * 0.6).toFixed(1);
-            const waveHeightEl = document.getElementById('waveHeight');
-            const currentWavesEl = document.getElementById('currentWaves');
-            if (waveHeightEl) waveHeightEl.textContent = waveHeight + 'm';
-            if (currentWavesEl) currentWavesEl.textContent = waveHeight + 'm';            
-            // Wind speed - deterministic based on time
-            const windSpeed = (13 + Math.cos(time / 8000) * 3).toFixed(1);
-            const windSpeedEl = document.getElementById('windSpeed');
-            const currentWindEl = document.getElementById('currentWind');
-            if (windSpeedEl) windSpeedEl.textContent = windSpeed + ' kts';
-            if (currentWindEl) currentWindEl.textContent = windSpeed + ' kts';            
-            // Fuel savings - deterministic based on time
-            const fuelSavings = (15.5 + Math.sin(time / 12000) * 2.5).toFixed(1);
-            const fuelSavingsEl = document.getElementById('fuelSavings');
-            if (fuelSavingsEl) fuelSavingsEl.textContent = fuelSavings + '%';            
-            // Visibility - deterministic based on time
-            const visibility = (17 + Math.cos(time / 15000) * 5).toFixed(1);
-            const currentVisibilityEl = document.getElementById('currentVisibility');
-            if (currentVisibilityEl) currentVisibilityEl.textContent = visibility + ' km';            
-            // Update main fuel savings metric (keeping the one in the metrics section)
-            const mainFuelSavingsElement = document.querySelector('.metric-counter#fuelSavings');
-            if (mainFuelSavingsElement) {
-                mainFuelSavingsElement.textContent = fuelSavings + '%';
+            try {
+                const time = Date.now();            
+                // Wave height - deterministic based on time
+                const waveHeight = (2.3 + Math.sin(time / 10000) * 0.6).toFixed(1);
+                const waveHeightEl = document.getElementById('waveHeight');
+                const currentWavesEl = document.getElementById('currentWaves');
+                if (waveHeightEl) waveHeightEl.textContent = waveHeight + 'm';
+                if (currentWavesEl) currentWavesEl.textContent = waveHeight + 'm';            
+                // Wind speed - deterministic based on time
+                const windSpeed = (13 + Math.cos(time / 8000) * 3).toFixed(1);
+                const windSpeedEl = document.getElementById('windSpeed');
+                const currentWindEl = document.getElementById('currentWind');
+                if (windSpeedEl) windSpeedEl.textContent = windSpeed + ' kts';
+                if (currentWindEl) currentWindEl.textContent = windSpeed + ' kts';            
+                // Fuel savings - deterministic based on time
+                const fuelSavings = (15.5 + Math.sin(time / 12000) * 2.5).toFixed(1);
+                const fuelSavingsEl = document.getElementById('fuelSavings');
+                if (fuelSavingsEl) fuelSavingsEl.textContent = fuelSavings + '%';            
+                // Visibility - deterministic based on time
+                const visibility = (17 + Math.cos(time / 15000) * 5).toFixed(1);
+                const currentVisibilityEl = document.getElementById('currentVisibility');
+                if (currentVisibilityEl) currentVisibilityEl.textContent = visibility + ' km';            
+                // Update main fuel savings metric (keeping the one in the metrics section)
+                const mainFuelSavingsElement = document.querySelector('.metric-counter#fuelSavings');
+                if (mainFuelSavingsElement) {
+                    mainFuelSavingsElement.textContent = fuelSavings + '%';
+                }
+            } catch (error) {
+                console.log('animateMetrics error (safe to ignore):', error);
             }
         }
-        setInterval(animateMetrics, 2000);
-        animateMetrics();
+        
+        // Only start animations when DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            setInterval(animateMetrics, 2000);
+            animateMetrics();
+        });
+        
+        // Fallback for already loaded pages
+        if (document.readyState === 'loading') {
+            // Do nothing, wait for DOMContentLoaded
+        } else {
+            // DOM is already loaded
+            setInterval(animateMetrics, 2000);
+            animateMetrics();
+        }
         // Enhanced map initialization with multiple layers
         function initMap() {
             try {
