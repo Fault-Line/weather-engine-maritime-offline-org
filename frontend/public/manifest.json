@@ -1,0 +1,8 @@
+{
+  "short_name": "Weather Engine Maritime",
+  "name": "Weather Engine Maritime - AI-powered maritime weather intelligence",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
