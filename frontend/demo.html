@@ -1870,9 +1870,15 @@
                 const source = PORTS[sourcePort];
                 const destination = PORTS[destPort];            
                 if (source && destination) {
-                    // Update route name
+                    // Update route name in main section
                     document.getElementById('currentRoute').textContent = 
                         `${source.name.split('(')[0].trim()} → ${destination.name.split('(')[0].trim()}`;
+                    
+                    // Update route data section at the top
+                    const routeDataElement = document.querySelector('.text-sm.text-yellow-300').parentElement.querySelector('.text-lg.font-semibold');
+                    if (routeDataElement) {
+                        routeDataElement.textContent = `${source.name.split('(')[0].trim()} → ${destination.name.split('(')[0].trim()}`;
+                    }
                     
                     // Calculate and validate all parameters
                     const distance = calculateRouteDistance(sourcePort, destPort);
