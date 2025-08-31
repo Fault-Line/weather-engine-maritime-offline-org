@@ -1,0 +1,32 @@
+{
+  "name": "weather-engine-maritime-frontend",
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/demo.html",
+      "dest": "/frontend/demo.html"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/frontend/build/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/build/index.html"
+    }
+  ],
+  "env": {
+    "REACT_APP_API_BASE_URL": "https://your-railway-backend-url.railway.app"
+  },
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/build"
+}
