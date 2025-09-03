@@ -1,0 +1,22 @@
+{
+  "name": "weather-engine-maritime-frontend",
+  "version": 2,
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/frontend/index.html"
+    },
+    {
+      "src": "/demo.html",
+      "dest": "/frontend/demo.html"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "/frontend/images/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
+    }
+  ]
+}
